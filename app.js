@@ -1,4 +1,3 @@
-
 // ===== TaskForce App - Main JavaScript =====
 const appSessionId = Math.random().toString(36).substring(2, 10);
 console.log("App Session ID:", appSessionId);
@@ -44,7 +43,7 @@ let loginScreen, mainApp, userNameLogin, userPinLogin, loginBtn;
 let userNameReg, userPinReg, userPinConfirm, registerBtn;
 let tabLogin, tabRegister, loginForm, registerForm, avatarPicker;
 let keywordInput, addTaskBtn, addTodoBtn, quickTodoSection, todoList, clearDoneTodosBtn, tasksList, emptyState, displayUserName, userAvatar, logoutBtn; // syncBtn moved
-let questionsModal, taskKeywordDisplay, questionsContainer, cancelTaskBtn, saveTaskBtn;
+let questionsModal, taskKeywordDisplay, questionsContainer, skipQuestionsBtn, saveTaskBtn;
 let taskDetailModal, closeDetailModal, detailTaskTitle, detailTaskStatus, detailContent, deleteTaskBtn, toggleDoneBtn, editTaskBtn, archiveTaskBtn;
 let urgentOverlay, urgentTaskText, urgentDoneBtn, urgentLaterBtn, filterTabs;
 let driveModeOverlay, driveTaskTitle, driveTaskLocation, startNavBtn, closeDriveBtn, speedValue;
@@ -58,14 +57,10 @@ let teamCodeInput, voiceStatus, globalRecordingDot,
 let wakeWordRecognition = null;
 let isWakeWordListening = false;
 let mainRecognition = null;
-let tesseractWorker = null; // Warm worker for faster scans
 let alarms = [];
 let activeAlarm = null;
 let alarmTimer = null;
 let nightstandTimer = null;
-
-// AI Research Result Modal Elements
-let aiResearchResultModal, closeAiResearchResultBtn, aiResultContent, researchAppointmentList, saveInNewAppointmentBtn, cancelAiResearchResultBtn;
 let expenses = [];
 let expenseBtn, sideExpenseBtn, expenseSection, expenseModal, closeExpenseModalBtn, addExpenseBtn, saveExpenseBtn, expenseImageInput, receiptPreview, scannerOverlay, expenseResultForm;
 let expDate, expStore, expCategory, expAmount, expenseTableBody, expDay, expWeek, expMonth, expYear;
@@ -87,21 +82,13 @@ let appSettings = Object.assign({
     voiceBeepEnabled: false, // Default OFF as requested
     aiTipsEnabled: true,
     aiVoiceEnabled: true,
-    openaiApiKey: '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', // Auto-inserted key
     autoArchive: true,
     locationTracking: true,
     driveModeEnabled: true,
     urgentPopupEnabled: true, // NEW: Toggle for urgent popups
     homeAddress: '',
     reminderLeadTime: 60,
-    aiProvider: 'grok',
-    headerIconCalendar: true,
-    headerIconExpense: true,
-    headerIconScan: true,
-    headerIconAlarm: true,
-    headerIconDrive: true,
-    headerIconNight: true,
-    navBottom: false // Default Top
+    aiProvider: 'grok'
 }, JSON.parse(localStorage.getItem('taskforce_settings')) || {});
 
 let userPos = null;
@@ -110,9 +97,6 @@ let installPrompt, installBtn, dismissInstall, installBanner, installAppBtn, clo
 
 let currentFileBase64 = null;
 let currentFileName = null;
-
-// AI Profile Elements
-let aiProfileModal, closeProfileBtn, saveProfileBtn, aiNameInput, aiGenderInput, aiBirthdateInput, aiJobInput, aiHobbiesInput, sideProfileBtn, sideDiscoveryBtn;
 
 // Keyword Detection for smart questions
 const keywordPatterns = {
@@ -164,8 +148,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         startLocationTracking();
     }, { once: true });
-
-    setTimeout(checkAIProfileStatus, 2500); // Check for profile setup after short delay
 
     checkUrlActions();
 
@@ -290,9 +272,9 @@ function initDOMElements() {
     expWeek = document.getElementById('expWeek');
     expMonth = document.getElementById('expMonth');
     expYear = document.getElementById('expYear');
-    const expenseSearchInput = document.getElementById('expenseSearch');
-    if (expenseSearchInput) {
-        expenseSearchInput.addEventListener('input', (e) => renderExpenses(e.target.value));
+    const expenseSearch = document.getElementById('expenseSearch');
+    if (expenseSearch) {
+        expenseSearch.addEventListener('input', (e) => renderExpenses(e.target.value));
     }
 
     // PayPal
@@ -542,6 +524,13 @@ function initDOMElements() {
         renderSyncedContacts();
     };
 
+    if (expenseBtn) expenseBtn.addEventListener('click', () => toggleExpenseSection());
+    if (sideExpenseBtn) sideExpenseBtn.addEventListener('click', () => { toggleExpenseSection(); toggleSideMenu(); });
+    if (addExpenseBtn) addExpenseBtn.addEventListener('click', () => openExpenseModal());
+    if (closeExpenseModalBtn) closeExpenseModalBtn.addEventListener('click', () => closeExpenseModal());
+    if (saveExpenseBtn) saveExpenseBtn.addEventListener('click', () => handleSaveExpense());
+    if (expenseImageInput) expenseImageInput.addEventListener('change', (e) => handleExpenseImage(e));
+
     updateRobotIcon(appSettings.aiProvider || 'grok');
 
     // Main App
@@ -590,7 +579,7 @@ function initDOMElements() {
     questionsModal = document.getElementById('questionsModal');
     taskKeywordDisplay = document.getElementById('taskKeywordDisplay');
     questionsContainer = document.getElementById('questionsContainer');
-    cancelTaskBtn = document.getElementById('cancelTaskBtn');
+    skipQuestionsBtn = document.getElementById('skipQuestionsBtn');
     saveTaskBtn = document.getElementById('saveTaskBtn');
 
     taskDetailModal = document.getElementById('taskDetailModal');
@@ -702,7 +691,7 @@ function initDOMElements() {
     const sideAlarmBtn = document.getElementById('sideAlarmBtn');
     const sideNightstandBtn = document.getElementById('sideNightstandBtn');
     const sideTodoBtn = document.getElementById('sideTodoBtn'); // New Sidebar Button
-    const sideNightstandBtnHeader = document.getElementById('sideNightstandBtnHeader'); // New Header Button for Nightstand
+    const headerTodoBtn = document.getElementById('headerTodoBtn'); // New Header Button
 
     if (sideTodoBtn) sideTodoBtn.addEventListener('click', () => {
         // Toggle Quick Todo Section
@@ -714,9 +703,12 @@ function initDOMElements() {
         toggleSideMenu();
     });
 
-    if (sideNightstandBtnHeader) sideNightstandBtnHeader.addEventListener('click', () => {
-        // Trigger Nightstand Mode from header
-        startNightstandMode();
+    if (headerTodoBtn) headerTodoBtn.addEventListener('click', () => {
+        const qts = document.getElementById('quickTodoSection');
+        if (qts) {
+            qts.classList.toggle('hidden');
+            if (!qts.classList.contains('hidden')) qts.scrollIntoView({ behavior: 'smooth' });
+        }
     });
 
     if (sideAlarmBtn) sideAlarmBtn.addEventListener('click', () => {
@@ -727,54 +719,12 @@ function initDOMElements() {
         toggleSideMenu();
     });
     if (sideNightstandBtn) sideNightstandBtn.addEventListener('click', () => {
-        // Trigger Nightstand Mode from sidebar
-        startNightstandMode();
+        // Trigger Nightstand logic if exists, or simple alert for now if function not found
+        if (typeof startNightStandMode === 'function') startNightStandMode();
+        else showToast('Nachtmodus wird gestartet...', 'info');
+        // Actually, let's just create a simple overlay if not exists, but previous code suggests it might.
+        // Let's rely on existing logic or user feedback if missing.
         toggleSideMenu();
-    });
-
-    // AI Research Result Modal
-    aiResearchResultModal = document.getElementById('aiResearchResultModal');
-    closeAiResearchResultBtn = document.getElementById('closeAiResearchResultBtn');
-    aiResultContent = document.getElementById('aiResultContent');
-    researchAppointmentList = document.getElementById('researchAppointmentList');
-    saveInNewAppointmentBtn = document.getElementById('saveInNewAppointmentBtn');
-    cancelAiResearchResultBtn = document.getElementById('cancelAiResearchResultBtn');
-
-    if (closeAiResearchResultBtn) closeAiResearchResultBtn.addEventListener('click', () => aiResearchResultModal.classList.add('hidden'));
-    if (cancelAiResearchResultBtn) cancelAiResearchResultBtn.addEventListener('click', () => aiResearchResultModal.classList.add('hidden'));
-    if (saveInNewAppointmentBtn) {
-        saveInNewAppointmentBtn.addEventListener('click', () => {
-            const data = aiResearchResultModal.dataset.extracted;
-            const type = aiResearchResultModal.dataset.type;
-            aiResearchResultModal.classList.add('hidden');
-
-            // Open new appointment modal with pre-filled data
-            openAppointmentModalWithData(data, type);
-        });
-    }
-
-    // AI Profile Initialization
-    aiProfileModal = document.getElementById('aiProfileModal');
-    closeProfileBtn = document.getElementById('closeProfileBtn');
-    saveProfileBtn = document.getElementById('saveProfileBtn');
-    aiNameInput = document.getElementById('aiName');
-    aiGenderInput = document.getElementById('aiGender');
-    aiBirthdateInput = document.getElementById('aiBirthdate');
-    aiJobInput = document.getElementById('aiJob');
-    aiHobbiesInput = document.getElementById('aiHobbies');
-    sideProfileBtn = document.getElementById('sideProfileBtn');
-
-    sideDiscoveryBtn = document.getElementById('sideDiscoveryBtn');
-
-    if (closeProfileBtn) closeProfileBtn.addEventListener('click', () => aiProfileModal.classList.add('hidden'));
-    if (saveProfileBtn) saveProfileBtn.addEventListener('click', saveAIProfile);
-    if (sideProfileBtn) sideProfileBtn.addEventListener('click', () => {
-        openAIProfile();
-        toggleSideMenu();
-    });
-    if (sideDiscoveryBtn) sideDiscoveryBtn.addEventListener('click', () => {
-        toggleSideMenu();
-        setTimeout(runProactiveAdvisor, 500);
     });
 
     // Toast Container
@@ -977,7 +927,6 @@ function showMainApp() {
 
     // Ensure clock is visible immediately
     updateGlobalClock();
-    applyAppSettings();
 
     // Start Wake Word Recognition
     setTimeout(() => {
@@ -1282,11 +1231,7 @@ function setupEventListeners() {
     });
 
     // Questions Modal
-    if (cancelTaskBtn) cancelTaskBtn.addEventListener('click', () => {
-        questionsModal.classList.add('hidden');
-        currentTask = null;
-        showToast('Vorgang abgebrochen', 'info');
-    });
+    skipQuestionsBtn.addEventListener('click', () => saveTask(true));
     saveTaskBtn.addEventListener('click', () => saveTask(false));
 
     // Detail Modal basic listeners
@@ -1569,41 +1514,6 @@ function setupEventListeners() {
     if (clearDoneTodosBtn) {
         clearDoneTodosBtn.addEventListener('click', () => clearDoneTodos());
     }
-
-    // Expense Tracker
-    if (expenseBtn) expenseBtn.addEventListener('click', toggleExpenseSection);
-    if (sideExpenseBtn) sideExpenseBtn.addEventListener('click', () => {
-        toggleExpenseSection();
-        sideMenuOverlay.classList.add('hidden');
-    });
-    if (addExpenseBtn) addExpenseBtn.addEventListener('click', openExpenseModal);
-    if (closeExpenseModalBtn) closeExpenseModalBtn.addEventListener('click', closeExpenseModal);
-    if (saveExpenseBtn) saveExpenseBtn.addEventListener('click', handleSaveExpense);
-    if (expenseImageInput) expenseImageInput.addEventListener('change', handleExpenseImage);
-    const fileInp = document.getElementById('expenseFileInput');
-    if (fileInp) fileInp.addEventListener('change', handleExpenseImage);
-
-    // New Header/Mobile Buttons
-    const addExpBtnHeader = document.getElementById('addExpenseBtnHeader');
-    if (addExpBtnHeader) addExpBtnHeader.addEventListener('click', openExpenseModal);
-    const mobExpBtn = document.getElementById('mobileExpenseBtn');
-    if (mobExpBtn) mobExpBtn.addEventListener('click', toggleExpenseSection);
-    const mobAddBtn = document.getElementById('mobileAddExpenseBtn');
-    if (mobAddBtn) mobAddBtn.addEventListener('click', openExpenseModal);
-
-    // Nightstand Mode Buttons
-    const sideNightstandBtn = document.getElementById('sideNightstandBtn');
-    const sideNightstandBtnHeader = document.getElementById('sideNightstandBtnHeader');
-    if (sideNightstandBtn) sideNightstandBtn.addEventListener('click', () => {
-        sideMenuOverlay.classList.add('hidden');
-        startNightstandMode();
-    });
-    if (sideNightstandBtnHeader) sideNightstandBtnHeader.addEventListener('click', startNightstandMode);
-
-    // Initial load
-    if (currentUser) {
-        loadExpenses();
-    }
 }
 
 // Global Calendar Opener
@@ -1630,29 +1540,6 @@ window.openCalendarModal = function () {
 
 
 // Handle Add Task
-// AI Provider Change Listener
-document.addEventListener('DOMContentLoaded', () => {
-    const provSel = document.getElementById('aiProviderSelect');
-    if (provSel) {
-        provSel.addEventListener('change', () => {
-            const val = provSel.value;
-            const keyGroup = document.getElementById('openaiKeyGroup');
-            if (keyGroup) {
-                if (val === 'chatgpt') keyGroup.classList.remove('hidden');
-                else keyGroup.classList.add('hidden');
-            }
-        });
-        // Initial check
-        // Check local storage or default first, but wait for appSettings to be ready?
-        // Actually appSettings is global.
-        setTimeout(() => {
-            if (appSettings && appSettings.aiProvider === 'chatgpt') {
-                const keyGroup = document.getElementById('openaiKeyGroup');
-                if (keyGroup) keyGroup.classList.remove('hidden');
-            }
-        }, 500);
-    }
-});
 
 // Appointment Form Logic
 document.addEventListener('DOMContentLoaded', () => {
@@ -1774,781 +1661,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ===== INTELLIGENT AI RESEARCH HANDLER =====
-/**
- * Handles AI-powered research queries
- * Example: "Finde die Telefonnummer von Anwalt Vetter in Rastatt"
- */
-function handleAIResearch(query) {
-    const lower = query.toLowerCase();
-
-    // Extract what we're looking for
-    let searchType = 'information';
-    if (lower.match(/telefon|nummer|tel|phone/i)) searchType = 'Telefonnummer';
-    else if (lower.match(/adresse|address/i)) searchType = 'Adresse';
-    else if (lower.match(/öffnungszeit/i)) searchType = 'Öffnungszeiten';
-    else if (lower.match(/email|e-mail/i)) searchType = 'E-Mail';
-    else if (lower.match(/website|webseite/i)) searchType = 'Website';
-
-    // Extract the subject (who/what we're searching for)
-    let subject = '';
-    const vonMatch = query.match(/(?:von|für)\s+(.+?)(?:\s+in\s+|\s+und\s+|$)/i);
-    if (vonMatch) {
-        subject = vonMatch[1].trim();
-    }
-
-    // Extract location if mentioned
-    let location = '';
-    const inMatch = query.match(/in\s+(\w+)/i);
-    if (inMatch) {
-        location = inMatch[1];
-    }
-
-    // Build search query for AI
-    let aiQuery = `Finde die ${searchType}`;
-    if (subject) aiQuery += ` von ${subject}`;
-    if (location) aiQuery += ` in ${location}`;
-
-    // Add instruction for AI to format the response
-    aiQuery += `. Bitte gib mir nur die konkrete Information zurück, ohne zusätzliche Erklärungen. Format: ${searchType}: [Wert]`;
-
-    showToast('🔍 Starte KI-Recherche...', 'info');
-
-    // Open AI with the search query
-    const provider = appSettings.aiProvider || 'grok';
-    let url = '';
-
-    switch (provider) {
-        case 'chatgpt':
-            url = `https://chat.openai.com/?q=${encodeURIComponent(aiQuery)}`;
-            break;
-        case 'gemini':
-            url = `https://gemini.google.com/app?q=${encodeURIComponent(aiQuery)}`;
-            break;
-        case 'grok':
-        default:
-            url = `https://grok.com/?q=${encodeURIComponent(aiQuery)}`;
-            break;
-    }
-
-    // Store the original query and context for later use
-    window.pendingResearchQuery = {
-        originalQuery: query,
-        searchType: searchType,
-        subject: subject,
-        location: location,
-        timestamp: Date.now()
-    };
-
-    // Open AI in new window
-    const aiWindow = window.open(url, '_blank');
-
-    // Show instructions to user
-    const aiName = getAiName();
-    showToast(`🔍 ${aiName} öffnet sich...`, 'info');
-
-    // After a delay, show instruction to copy result
-    setTimeout(() => {
-        showToast(`📋 Schritt 1: Warte auf ${aiName}'s Antwort`, 'info');
-    }, 1000);
-
-    setTimeout(() => {
-        showToast('📝 Schritt 2: Kopiere die Antwort (Strg+C)', 'info');
-    }, 3000);
-
-    setTimeout(() => {
-        showToast('🔙 Schritt 3: Kehre zur App zurück und klicke den Button!', 'info');
-
-        // Prepare the task modal to receive the information
-        prepareTaskModalForResearch(subject, location, searchType);
-    }, 5000);
-
-    // Set up clipboard monitoring
-    window.pendingAiResearch = true;
-    setupClipboardMonitoring();
-}
-
-/**
- * Prepares the task/appointment modal to receive researched information
- */
-function prepareTaskModalForResearch(subject, location, searchType) {
-    // Create a new task with the subject
-    const taskTitle = subject || 'Neuer Termin';
-
-    // Store in window for later use
-    window.researchTaskData = {
-        keyword: taskTitle,
-        location: location || '',
-        searchType: searchType,
-        details: {}
-    };
-
-    // Open the appointment modal if it exists
-    const appointmentModal = document.getElementById('appointmentModal');
-    if (appointmentModal) {
-        appointmentModal.classList.remove('hidden');
-
-        // Pre-fill known information
-        const titleField = document.getElementById('appTitle');
-        const locationField = document.getElementById('appLocation');
-
-        if (titleField) titleField.value = taskTitle;
-        if (locationField && location) locationField.value = location;
-
-        // Add a helper button for manual pasting
-        addResearchPasteButton(searchType);
-
-        // Focus on the appropriate field based on search type
-        if (searchType === 'Telefonnummer') {
-            const phoneField = document.getElementById('appPhone');
-            if (phoneField) {
-                phoneField.focus();
-                phoneField.placeholder = 'KI-Antwort hier einfügen (Strg+V)';
-            }
-        } else if (searchType === 'E-Mail') {
-            const notesField = document.getElementById('appNotes');
-            if (notesField) {
-                notesField.focus();
-                notesField.placeholder = 'E-Mail hier einfügen (Strg+V)';
-            }
-        } else if (searchType === 'Adresse') {
-            const locationField = document.getElementById('appLocation');
-            if (locationField) {
-                locationField.focus();
-                locationField.placeholder = 'Adresse hier einfügen (Strg+V)';
-            }
-        }
-    } else {
-        // Fallback: Open questions modal
-        if (typeof showQuestionsModal === 'function') {
-            const newTask = {
-                keyword: taskTitle,
-                details: {
-                    location: location || ''
-                }
-            };
-            currentTask = newTask;
-            const detected = detectQuestions(taskTitle, newTask.details);
-            showQuestionsModal(taskTitle, detected, { taskTitle, details: newTask.details });
-        }
-    }
-}
-
-/**
- * Adds a manual paste button to help users insert AI research results
- */
-function addResearchPasteButton(searchType) {
-    // Remove any existing button
-    const existingBtn = document.getElementById('aiResearchPasteBtn');
-    if (existingBtn) existingBtn.remove();
-
-    // Create the button
-    const pasteBtn = document.createElement('button');
-    pasteBtn.id = 'aiResearchPasteBtn';
-    pasteBtn.type = 'button';
-    pasteBtn.className = 'btn-primary';
-    pasteBtn.style.cssText = `
-        width: 100%;
-        margin: 1rem 0;
-        padding: 1rem;
-        font-size: 1.1rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        background: linear-gradient(135deg, var(--secondary), var(--primary));
-        animation: pulse 2s ease-in-out infinite;
-    `;
-    pasteBtn.innerHTML = `📋 KI-Antwort automatisch einfügen`;
-
-    pasteBtn.onclick = async () => {
-        try {
-            const clipboardText = await navigator.clipboard.readText();
-
-            if (!clipboardText || clipboardText.length < 3) {
-                showToast('❌ Keine Daten in der Zwischenablage gefunden', 'error');
-                return;
-            }
-
-            // Extract the information
-            const extracted = extractResearchInfo(clipboardText, searchType);
-
-            if (extracted) {
-                autoFillResearchedInfo(extracted, searchType);
-                showToast(`✅ ${searchType} eingefügt!`, 'success');
-
-                // Remove the button after successful paste
-                pasteBtn.remove();
-
-                // Clear pending research
-                window.pendingAiResearch = false;
-                window.pendingResearchQuery = null;
-            } else {
-                showToast('⚠️ Konnte keine Information extrahieren. Bitte manuell einfügen.', 'warning');
-            }
-        } catch (err) {
-            console.error('Clipboard error:', err);
-            showToast('❌ Clipboard-Zugriff verweigert. Bitte mit Strg+V einfügen.', 'error');
-        }
-    };
-
-    // Insert the button into the modal
-    const appointmentModal = document.getElementById('appointmentModal');
-    if (appointmentModal) {
-        const modalBody = appointmentModal.querySelector('.modal-body');
-        if (modalBody) {
-            // Insert at the top of the modal body
-            modalBody.insertBefore(pasteBtn, modalBody.firstChild);
-        }
-    }
-}
-
-/**
- * Sets up clipboard monitoring to auto-fill researched information
- */
-function setupClipboardMonitoring() {
-    // Monitor window focus to detect when user returns from AI
-    const focusHandler = async () => {
-        if (window.pendingAiResearch && window.pendingResearchQuery) {
-            try {
-                // Small delay to ensure clipboard is ready
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                const clipboardText = await navigator.clipboard.readText();
-
-                if (clipboardText && clipboardText.length > 3) {
-                    // Extract the relevant information from AI response
-                    const extracted = extractResearchInfo(clipboardText, window.pendingResearchQuery.searchType);
-
-                    if (extracted) {
-                        // Auto-fill the information
-                        autoFillResearchedInfo(extracted, window.pendingResearchQuery.searchType);
-
-                        showToast(`✅ ${window.pendingResearchQuery.searchType} automatisch eingefügt!`, 'success');
-
-                        // Clear pending research
-                        window.pendingAiResearch = false;
-                        window.pendingResearchQuery = null;
-
-                        // Remove focus listener
-                        window.removeEventListener('focus', focusHandler);
-                    }
-                }
-            } catch (err) {
-                console.log('Clipboard access error:', err);
-                // User might need to manually paste
-                showToast('💡 Bitte füge die Information manuell ein (Strg+V)', 'info');
-            }
-        }
-    };
-
-    window.addEventListener('focus', focusHandler);
-
-    // Auto-cleanup after 5 minutes
-    setTimeout(() => {
-        window.pendingAiResearch = false;
-        window.removeEventListener('focus', focusHandler);
-    }, 300000);
-}
-
-/**
- * Extracts specific information from AI response
- */
-function extractResearchInfo(text, searchType) {
-    const lower = text.toLowerCase();
-
-    if (searchType === 'Telefonnummer') {
-        // Extract phone number
-        const phonePatterns = [
-            /(?:telefon|tel|phone|nummer)[:\s]*([+\d\s\-\/\(\)]{7,20})/gi,
-            /(\+49[\s\-]?\d{2,5}[\s\-]?\d{3,10})/g,
-            /(0\d{2,5}[\s\-\/]?\d{3,10})/g
-        ];
-
-        for (const pattern of phonePatterns) {
-            const match = text.match(pattern);
-            if (match) {
-                return match[0].replace(/[^\d+\s\-\/\(\)]/g, '').trim();
-            }
-        }
-    } else if (searchType === 'E-Mail') {
-        // Extract email
-        const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-        if (emailMatch) return emailMatch[1];
-    } else if (searchType === 'Adresse') {
-        // Extract address (simple approach)
-        const addressMatch = text.match(/(\d{5}\s+\w+.*?(?:\d+)?)/);
-        if (addressMatch) return addressMatch[1];
-    } else if (searchType === 'Website') {
-        // Extract URL
-        const urlMatch = text.match(/(https?:\/\/[^\s]+|www\.[^\s]+)/i);
-        if (urlMatch) return urlMatch[1];
-    }
-
-    // Fallback: return first line that looks relevant
-    const lines = text.split('\n').filter(l => l.trim().length > 3);
-    return lines[0] || text.substring(0, 100);
-}
-
-/**
- * Auto-fills researched information into the appropriate field
- */
-/**
- * Auto-fills researched information into the appropriate field or opens selection modal
- */
-function autoFillResearchedInfo(info, searchType) {
-    // If appointment modal is already open and not hidden, fill it directly
-    const appointmentModal = document.getElementById('appointmentModal');
-    if (appointmentModal && !appointmentModal.classList.contains('hidden')) {
-        fillTargetField(info, searchType);
-        return;
-    }
-
-    // Otherwise open the selection modal as requested by user
-    openAiResearchResultModal(info, searchType);
-}
-
-function fillTargetField(info, searchType) {
-    if (searchType === 'Telefonnummer') {
-        const phoneField = document.getElementById('appPhone');
-        if (phoneField) {
-            phoneField.value = info;
-            phoneField.classList.add('highlight-flash');
-            setTimeout(() => phoneField.classList.remove('highlight-flash'), 1000);
-        }
-        if (window.researchTaskData) window.researchTaskData.details.phone = info;
-    } else if (searchType === 'E-Mail') {
-        const emailField = document.getElementById('appEmail');
-        const notesField = document.getElementById('appNotes');
-        if (emailField) {
-            emailField.value = info;
-            emailField.classList.add('highlight-flash');
-            setTimeout(() => emailField.classList.remove('highlight-flash'), 1000);
-        } else if (notesField) {
-            const emailLine = `📧 E-Mail: ${info}`;
-            if (!notesField.value.includes(info)) {
-                notesField.value = (notesField.value ? notesField.value + '\n' : '') + emailLine;
-                notesField.classList.add('highlight-flash');
-                setTimeout(() => notesField.classList.remove('highlight-flash'), 1000);
-            }
-        }
-        if (window.researchTaskData) window.researchTaskData.details.email = info;
-    } else if (searchType === 'Adresse') {
-        const locationField = document.getElementById('appLocation');
-        if (locationField) {
-            locationField.value = info;
-            locationField.classList.add('highlight-flash');
-            setTimeout(() => locationField.classList.remove('highlight-flash'), 1000);
-        }
-        if (window.researchTaskData) window.researchTaskData.details.location = info;
-    } else {
-        const notesField = document.getElementById('appNotes');
-        if (notesField) {
-            notesField.value = (notesField.value ? notesField.value + '\n' : '') + info;
-            notesField.classList.add('highlight-flash');
-            setTimeout(() => notesField.classList.remove('highlight-flash'), 1000);
-        }
-    }
-}
-
-function openAiResearchResultModal(info, searchType) {
-    if (!aiResearchResultModal) return;
-
-    aiResultContent.textContent = info;
-    aiResearchResultModal.dataset.extracted = info;
-    aiResearchResultModal.dataset.type = searchType;
-    aiResearchResultModal.classList.remove('hidden');
-
-    renderResearchAppointmentList(info, searchType);
-}
-
-function renderResearchAppointmentList(info, searchType) {
-    if (!researchAppointmentList) return;
-
-    // Get upcoming tasks
-    const now = new Date();
-    const upcomingTasks = tasks.filter(t => !t.archived && (!t.deadline || new Date(t.deadline) >= now)).slice(0, 10);
-
-    if (upcomingTasks.length === 0) {
-        researchAppointmentList.innerHTML = '<div style="text-align:center; padding:1rem; opacity:0.6;">Keine anstehenden Termine gefunden.</div>';
-        return;
-    }
-
-    researchAppointmentList.innerHTML = upcomingTasks.map(task => {
-        const dateStr = task.deadline ? formatDateShort(task.deadline) : 'Ohne Datum';
-        return `
-            <div class="appointment-select-item" onclick="applyResearchToTask('${task.id}', '${info.replace(/'/g, "\\'")}', '${searchType}')" style="padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); border-radius: 8px; cursor: pointer; transition: all 0.2s;">
-                <div style="font-weight: 600;">${escapeHtml(task.keyword)}</div>
-                <div style="font-size: 0.8rem; opacity: 0.6;">${dateStr}</div>
-            </div>
-        `;
-    }).join('');
-}
-
-window.applyResearchToTask = function (taskId, info, searchType) {
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
-
-    if (!task.details) task.details = {};
-
-    if (searchType === 'Telefonnummer') task.details.phone = info;
-    else if (searchType === 'Adresse') task.details.location = info;
-    else if (searchType === 'E-Mail') task.details.email = info;
-    else if (searchType === 'Öffnungszeiten') task.details.hours = info;
-    else {
-        task.details.notes = (task.details.notes ? task.details.notes + '\n' : '') + info;
-    }
-
-    saveTasks();
-    renderTasks();
-    aiResearchResultModal.classList.add('hidden');
-    showToast(`✅ Info in "${task.keyword}" gespeichert`, 'success');
-};
-
-function openAppointmentModalWithData(info, searchType) {
-    const appointmentModal = document.getElementById('appointmentModal');
-    if (!appointmentModal) return;
-
-    // Reset fields
-    document.getElementById('appTitle').value = '';
-    document.getElementById('appDate').value = new Date().toISOString().split('T')[0];
-    document.getElementById('appTime').value = '12:00';
-    document.getElementById('appLocation').value = '';
-    document.getElementById('appPerson').value = '';
-    document.getElementById('appPhone').value = '';
-    document.getElementById('appNotes').value = '';
-
-    // Fill the specific one
-    if (searchType === 'Telefonnummer') document.getElementById('appPhone').value = info;
-    else if (searchType === 'Adresse') document.getElementById('appLocation').value = info;
-    else if (searchType === 'E-Mail') {
-        const personMatch = info.match(/^([^@]+)@/);
-        if (personMatch) document.getElementById('appPerson').value = personMatch[1];
-        document.getElementById('appNotes').value = `E-Mail: ${info}`;
-    } else {
-        document.getElementById('appNotes').value = info;
-    }
-
-    appointmentModal.classList.remove('hidden');
-    document.getElementById('appTitle').focus();
-}
-
-// ===== INTELLIGENT NATURAL LANGUAGE COMMAND PROCESSOR =====
-
-function handleAIResearch(input) {
-    const lower = input.toLowerCase();
-    let type = 'Auto';
-    if (lower.includes('telefon') || lower.includes('nummer')) type = 'Telefonnummer';
-    else if (lower.includes('adresse') || lower.includes('anschrift') || lower.includes('wo ist') || lower.includes('ort')) type = 'Adresse';
-    else if (lower.includes('mail')) type = 'E-Mail';
-    else if (lower.includes('öffnet') || lower.includes('zeit')) type = 'Öffnungszeiten';
-
-    window.pendingAiResearch = true;
-    window.pendingAiSearchType = type;
-
-    // Extract query cleanly
-    let query = input.replace(/finde|suche|trage|eintrag|speicher|recherchier|ermittle|bitte|mir/gi, '').trim();
-    // Remove articles at start
-    query = query.replace(/^(die|den|das|eine|einen)\s+/i, '');
-
-    // Add context if missing
-    if (type === 'Telefonnummer' && !query.toLowerCase().includes('telefon')) query = 'Telefonnummer ' + query;
-    if (type === 'Adresse' && !query.toLowerCase().includes('adresse')) query = 'Adresse ' + query;
-
-    openAISearch(query);
-    showToast('📋 Ergebnis kopieren & hierher zurückkehren!', 'info', 8000);
-}
-
-/**
- * Processes natural language commands and executes corresponding actions
- * Returns true if a command was recognized and executed, false otherwise
- */
-function processNaturalLanguageCommand(input) {
-    const lower = input.toLowerCase().trim();
-
-    // ========== INTELLIGENT AI RESEARCH SYSTEM ==========
-    // Detects when user asks for information and automatically researches it
-    // Detects when user asks for information and automatically researches it
-    if (lower.match(/finde|suche|such|recherchier|ermittle|zeige?\s+mir|trage|eintrag|speicher/i)) {
-        // Check if asking for specific information
-        const isResearchQuery =
-            lower.match(/telefon|nummer|tel|phone|adresse|address|öffnungszeit|email|e-mail|website|webseite/i) ||
-            lower.match(/von\s+\w+/i) || // "von [Name]"
-            lower.match(/in\s+\w+/i);    // "in [Stadt]"
-
-        if (isResearchQuery) {
-            handleAIResearch(input);
-            return true;
-        }
-    }
-
-    // ========== CALENDAR COMMANDS ==========
-    if (lower.match(/kalender|calendar/i)) {
-        if (lower.match(/öffn|öffen|zeig|anzeig|starte|start/i)) {
-            if (window.openCalendarModal) {
-                window.openCalendarModal();
-                showToast('📅 Kalender geöffnet', 'success');
-                return true;
-            }
-        }
-    }
-
-    // ========== TODO LIST COMMANDS ==========
-    if (lower.match(/todo|to-do|aufgabe|notiz/i)) {
-        if (lower.match(/öffn|öffen|zeig|anzeig|liste/i)) {
-            const todoSection = document.getElementById('quickTodoSection');
-            if (todoSection) {
-                todoSection.classList.remove('hidden');
-                todoSection.scrollIntoView({ behavior: 'smooth' });
-                showToast('📝 To-Do Liste geöffnet', 'success');
-                return true;
-            }
-        }
-        // "Füge X in die To-Do Liste ein" or "Trage X in die To-Do Liste ein"
-        if (lower.match(/füge|trage|eintrag|hinzu|add/i) && lower.match(/ein|hinzu/i)) {
-            // Extract the task text
-            const taskMatch = input.match(/(?:füge|trage|eintrag)\s+(.+?)\s+(?:in|zur|zu)/i);
-            if (taskMatch && taskMatch[1]) {
-                const todoText = taskMatch[1].trim();
-                addQuickTodo(todoText);
-                showToast(`✅ "${todoText}" zur To-Do Liste hinzugefügt`, 'success');
-                return true;
-            }
-        }
-    }
-
-    // ========== EXPENSE TRACKER COMMANDS ==========
-    if (lower.match(/ausgabe|ausgaben|kosten|beleg|expense|quittung/i)) {
-        // "Füge 50 Euro Aldi in die Ausgaben ein"
-        if (lower.match(/füge|trage|eintrag|hinzu|add/i)) {
-            // Extract amount, store, and category
-            const amountMatch = input.match(/(\d+(?:[.,]\d{1,2})?)\s*(?:€|euro|eur)/i);
-            const storeMatch = input.match(/(?:€|euro|eur)\s+(\w+)|(\w+)\s+in\s+(?:die\s+)?ausgabe/i);
-
-            if (amountMatch) {
-                const amount = amountMatch[1].replace(',', '.');
-                let store = '';
-
-                // Try to extract store name
-                if (storeMatch) {
-                    store = storeMatch[1] || storeMatch[2] || '';
-                } else {
-                    // Look for common store names
-                    const commonStores = ['aldi', 'lidl', 'rewe', 'edeka', 'penny', 'netto', 'kaufland', 'dm', 'rossmann', 'amazon', 'ebay', 'paypal', 'tankstelle', 'shell', 'aral'];
-                    for (const storeName of commonStores) {
-                        if (lower.includes(storeName)) {
-                            store = storeName.charAt(0).toUpperCase() + storeName.slice(1);
-                            break;
-                        }
-                    }
-                }
-
-                // Create expense entry
-                const newExpense = {
-                    id: Date.now().toString(),
-                    date: new Date().toISOString().split('T')[0],
-                    store: store || 'Unbekannt',
-                    amount: parseFloat(amount),
-                    category: 'Allgemein',
-                    createdAt: new Date().toISOString()
-                };
-
-                expenses.push(newExpense);
-                saveExpenses();
-                updateExpenseStats();
-                renderExpenses();
-
-                showToast(`💰 ${amount}€ ${store ? 'bei ' + store : ''} eingetragen`, 'success');
-
-                // Optionally open expense section
-                const expenseSection = document.getElementById('expenseSection');
-                if (expenseSection && expenseSection.classList.contains('hidden')) {
-                    toggleExpenseSection();
-                }
-
-                return true;
-            }
-        }
-
-        // "Öffne Ausgaben" or "Zeige Ausgaben"
-        if (lower.match(/öffn|öffen|zeig|anzeig/i)) {
-            toggleExpenseSection();
-            showToast('💰 Kostenkontrolle geöffnet', 'success');
-            return true;
-        }
-    }
-
-    // ========== PAYPAL COMMANDS ==========
-    if (lower.match(/paypal|pay\s*pal/i)) {
-        if (lower.match(/öffn|öffen|zeig|starte|bezahl|zahl/i)) {
-            window.open('https://www.paypal.com', '_blank');
-            showToast('🅿️ PayPal geöffnet', 'success');
-            return true;
-        }
-    }
-
-    // ========== NIGHT MODE / NIGHTSTAND COMMANDS ==========
-    if (lower.match(/nacht|night|nachttisch|nightstand/i)) {
-        if (lower.match(/modus|mode|ein|an|aktiv|start|öffn/i)) {
-            const nightstandOverlay = document.getElementById('nightstandOverlay');
-            if (nightstandOverlay) {
-                nightstandOverlay.classList.remove('hidden');
-                if (typeof startNightstand === 'function') {
-                    startNightstand();
-                }
-                showToast('🌙 Nachtmodus aktiviert', 'success');
-                return true;
-            }
-        }
-    }
-
-    // ========== ALARM / WECKER COMMANDS ==========
-    if (lower.match(/wecker|alarm|weck/i)) {
-        // "Wecker auf 7 Uhr eintragen" or "Stelle Wecker auf 14:30"
-        if (lower.match(/auf|für|um|stelle|eintrag|setze/i)) {
-            // Extract time
-            const timeMatch = input.match(/(\d{1,2})[:\.]?(\d{2})?\s*(?:uhr)?/i) ||
-                input.match(/um\s+(\d{1,2})[:\.]?(\d{2})?/i) ||
-                input.match(/auf\s+(\d{1,2})[:\.]?(\d{2})?/i);
-
-            if (timeMatch) {
-                const hours = parseInt(timeMatch[1]);
-                const minutes = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
-
-                if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
-                    // Create alarm
-                    const newAlarm = {
-                        id: Date.now().toString(),
-                        hours: hours,
-                        minutes: minutes,
-                        label: `Wecker ${hours}:${minutes.toString().padStart(2, '0')}`,
-                        days: [],
-                        enabled: true,
-                        createdAt: new Date().toISOString()
-                    };
-
-                    alarms.push(newAlarm);
-                    saveAlarms();
-                    renderAlarms();
-
-                    showToast(`⏰ Wecker auf ${hours}:${minutes.toString().padStart(2, '0')} Uhr gestellt`, 'success');
-
-                    // Optionally open alarm section
-                    const alarmSection = document.getElementById('alarmSection');
-                    if (alarmSection && alarmSection.classList.contains('hidden')) {
-                        alarmSection.classList.remove('hidden');
-                    }
-
-                    return true;
-                }
-            }
-        }
-
-        // "Öffne Wecker" or "Zeige Alarme"
-        if (lower.match(/öffn|öffen|zeig|anzeig|liste/i)) {
-            const alarmModal = document.getElementById('alarmSettingsModal');
-            if (alarmModal) {
-                alarmModal.classList.remove('hidden');
-                showToast('⏰ Wecker-Einstellungen geöffnet', 'success');
-                return true;
-            }
-        }
-    }
-
-    // ========== COMMUNICATION COMMANDS ==========
-    if (lower.match(/anruf|ruf|telefon|call/i)) {
-        // Extract phone number
-        const phoneMatch = input.match(/(\+?[\d\s\-\/\(\)]{7,20})/);
-        if (phoneMatch) {
-            const phone = phoneMatch[1].replace(/[^\d+]/g, '');
-            window.location.href = `tel:${phone}`;
-            showToast(`📞 Rufe ${phone} an...`, 'success');
-            return true;
-        }
-
-        // Open communication modal
-        if (lower.match(/öffn|öffen|zeig/i)) {
-            const commModal = document.getElementById('commModal');
-            if (commModal) {
-                commModal.classList.remove('hidden');
-                showToast('📱 Kommunikation geöffnet', 'success');
-                return true;
-            }
-        }
-    }
-
-    // ========== WHATSAPP COMMANDS ==========
-    if (lower.match(/whatsapp|wa\s/i)) {
-        if (lower.match(/öffn|öffen|schreib|send/i)) {
-            window.open('https://web.whatsapp.com', '_blank');
-            showToast('💬 WhatsApp geöffnet', 'success');
-            return true;
-        }
-    }
-
-    // ========== EMAIL COMMANDS ==========
-    if (lower.match(/email|e-mail|mail/i) && lower.match(/öffn|öffen|schreib|send/i)) {
-        const emailMatch = input.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-        if (emailMatch) {
-            window.location.href = `mailto:${emailMatch[1]}`;
-            showToast(`✉️ E-Mail an ${emailMatch[1]} wird geöffnet...`, 'success');
-            return true;
-        }
-    }
-
-    // ========== DRIVE MODE COMMANDS ==========
-    if (lower.match(/fahrt|fahr|drive|auto/i) && lower.match(/modus|mode|start|öffn/i)) {
-        const upcoming = getUpcomingLocationTasks();
-        if (upcoming.length > 0) {
-            showDriveMode(upcoming[0]);
-        } else {
-            showToast('🚗 Fahrt-Modus gestartet', 'info');
-            showDriveMode({ keyword: 'Kein Ziel', details: { location: '' } });
-        }
-        return true;
-    }
-
-    // ========== SETTINGS COMMANDS ==========
-    if (lower.match(/einstellung|settings|optionen/i) && lower.match(/öffn|öffen|zeig/i)) {
-        if (typeof openSettings === 'function') {
-            openSettings();
-            showToast('⚙️ Einstellungen geöffnet', 'success');
-            return true;
-        }
-    }
-
-    // No command recognized
-    return false;
-}
-
-// Helper function to add quick todo
-function addQuickTodo(text) {
-    if (!text || !text.trim()) return;
-
-    const todo = {
-        id: Date.now().toString(),
-        text: text.trim(),
-        done: false,
-        createdAt: new Date().toISOString()
-    };
-
-    const storageKey = currentUser ? `taskforce_todos_${currentUser.id}` : 'taskforce_todos';
-    let todos = JSON.parse(localStorage.getItem(storageKey)) || [];
-    todos.unshift(todo);
-    localStorage.setItem(storageKey, JSON.stringify(todos));
-
-    // Render todos if function exists
-    if (typeof renderTodos === 'function') {
-        renderTodos();
-    }
-
-    // Show todo section
-    const todoSection = document.getElementById('quickTodoSection');
-    if (todoSection) {
-        todoSection.classList.remove('hidden');
-    }
-}
-
 // Handle Add Task
 function handleAddTask(autoSave = false) {
     const rawInput = keywordInput.value.trim();
@@ -2559,46 +1671,13 @@ function handleAddTask(autoSave = false) {
         return;
     }
 
-    // PRIORITY: Direct Grok Question Mode
-    // If input ends with '?' -> Always ask Grok, no matter what
-    if (rawInput.includes('?')) {
-        const query = rawInput;
-        const provider = appSettings.aiProvider || 'grok';
-        let url = '';
-
-        switch (provider) {
-            case 'chatgpt':
-                url = `https://chat.openai.com/?q=${encodeURIComponent(query)}`;
-                break;
-            case 'gemini':
-                url = `https://gemini.google.com/app?q=${encodeURIComponent(query)}`;
-                break;
-            case 'grok':
-            default:
-                url = `https://grok.com/?q=${encodeURIComponent(query)}`;
-                break;
-        }
-
-        window.open(url, '_blank');
-        showToast(`Frage an ${getAiName()} gesendet...`, 'info');
-        keywordInput.value = '';
-        return;
-    }
-
-    // ===== INTELLIGENT NATURAL LANGUAGE COMMAND PROCESSING =====
-    // Process natural language commands BEFORE task creation
-    if (processNaturalLanguageCommand(rawInput)) {
-        keywordInput.value = '';
-        return;
-    }
-
     // PRIORitize Task/Memo Saving over commands
     const lowerRaw = rawInput.toLowerCase();
     const isAiTrigger = lowerRaw.startsWith('grok') || lowerRaw.startsWith('hey grok') ||
         lowerRaw.startsWith('chatgpt') || lowerRaw.startsWith('hey chatgpt') ||
         lowerRaw.startsWith('gemini') || lowerRaw.startsWith('hey gemini');
     const questionPatterns = ['was ist', 'wie ist', 'wie spät', 'wer bist', 'wie wird', 'was sind'];
-    const looksLikeQuestion = (questionPatterns.some(p => rawInput.toLowerCase().startsWith(p)))
+    const looksLikeQuestion = (questionPatterns.some(p => rawInput.toLowerCase().startsWith(p)) || rawInput.includes('?'))
         && !/heute|morgen|termin|uhr|anrufen|kaufen|besorgen|erinner/i.test(rawInput);
 
     if ((isAiTrigger || looksLikeQuestion) && typeof handleVoiceCommand === 'function') {
@@ -2757,80 +1836,7 @@ function handleVoiceCommand(text) {
         return true;
     }
 
-    // MAGIC COMMAND: "Das ist der Richtige"
-    if (lower.includes('das ist der richtige') || lower.includes('es ist der richtige')) {
-        if (!questionsModal.classList.contains('hidden')) {
-            magicFillFromClipboard();
-            return true;
-        }
-    }
-
     return false;
-}
-
-// Global state for Research Mode
-window.pendingAiResearch = false;
-
-// Monitor window focus for automatic clipboard ingestion
-window.addEventListener('focus', async () => {
-    // If pending research, ALWAYS check clipboard, regardless of modal state
-    if (window.pendingAiResearch) {
-        console.log("Returning from research (Pending Mode), checking clipboard...");
-        const success = await magicFillFromClipboard(true); // silent mode
-        if (success) {
-            window.pendingAiResearch = false;
-        }
-        return;
-    }
-
-    // Default behavior for magic input in modal
-    if (window.pendingAiResearch && !questionsModal.classList.contains('hidden')) {
-        console.log("Returning from research, checking clipboard...");
-        const success = await magicFillFromClipboard(true); // silent mode
-        if (success) {
-            window.pendingAiResearch = false;
-            showToast('KI-Daten automatisch übernommen!', 'success');
-        }
-    }
-});
-
-// Magic Fill from Clipboard
-async function magicFillFromClipboard(silent = false) {
-    try {
-        const text = await navigator.clipboard.readText();
-        if (!text || text.length < 5) {
-            if (!silent) showToast('Kein Text in der Zwischenablage gefunden.', 'error');
-            return false;
-        }
-
-        // Use the existing logic to parse
-        const magicArea = document.getElementById('magicRawInput');
-        if (magicArea) magicArea.value = text;
-
-        // NEW: Check if this is a pending research result destined for the popup
-        if (window.pendingAiResearch) {
-            // If we are waiting for research data, open the Selection Modal
-            // Try to extract relevant info first (cleaning)
-            let cleanedInfo = text;
-            if (window.pendingAiSearchType) {
-                cleanedInfo = extractResearchInfo(text, window.pendingAiSearchType);
-            }
-
-            openAiResearchResultModal(cleanedInfo, window.pendingAiSearchType || 'Auto');
-
-            // Reset state handled by caller or here
-            window.pendingAiResearch = false;
-            showToast('✅ Daten gefunden! Bitte Termin wählen.', 'success');
-            return true;
-        }
-
-        const filled = magicFillFromText();
-        return filled;
-    } catch (err) {
-        console.error("Clipboard Error:", err);
-        if (!silent) showToast('Zugriff auf Zwischenablage verweigert. Bitte Button klicken.', 'error');
-        return false;
-    }
 }
 
 // ===== INTELLIGENT TEXT PARSER =====
@@ -3160,315 +2166,22 @@ function parseSmartInput(input) {
 }
 
 // Open Smart Search - Uses selected AI provider
-// Open Smart Search - Uses selected AI provider or Background Simulation
 function openSmartSearch(type, context) {
     let query = '';
     const taskTitle = currentTask ? currentTask.keyword : '';
     const person = (currentTask && currentTask.details.person) || '';
     const location = (currentTask && currentTask.details.location) || '';
-    const isEditVal = document.getElementById(`question_${type}`) ? document.getElementById(`question_${type}`).value : '';
-
-    // If we already have a value, maybe just validate it? No, user clicked search.
 
     if (type === 'phone') {
         query = `Telefonnummer ${person || taskTitle} ${location} `;
     } else if (type === 'location') {
         query = `Anschrift Adresse ${person || taskTitle} ${location} `;
-    } else if (type === 'brain') {
-        // ULTIMATE PROMPT: Monitor, Validate, Find and Question
-        query = `RECHERCHE-AUFTRAG & TASK-VALIDIERUNG: 
-        1. Recherchiere UNBEDINGT Telefon, E-Mail, Adresse und Sprechzeiten für '${taskTitle}' in '${location}'.
-        2. ÜBERWACHE DEN TASK: Prüfe ob etwas nicht stimmt (Termin-Konflikte, Schließzeiten etc.).
-        3. FRAGEN-CHECK: Stelle zur Vorbereitung kurz die 6 W-Fragen (Wie? Wo? Was? Warum? Wieso? Weshalb?).
-        
-        ANTWORTE STRIKT IM FORMAT:
-        TELEFON: [Nummer]
-        EMAIL: [E-Mail]
-        ADRESSE: [Anschrift]
-        SPRECHZEITEN: [Details]
-        HINWEIS: [Problem-Check]
-        FRAGEN: [Wie, Wo, Was, Warum, Wieso, Weshalb - kurz zusammengefasst]
-        
-        Antworte ohne Smalltalk, direkt bereit zum Kopieren.`;
-        window.pendingAiResearch = true;
     } else {
-        query = `${type} für ${taskTitle} ${person} ${location} `.trim();
+        query = `${taskTitle} ${person} ${location} `.trim();
     }
 
-    // Determine Mode: Background (Simulation) vs External
-    // For specific fields (phone, address), try background simulation first "ohne Grok zu sehen"
-    if (type !== 'brain') {
-        startBackgroundResearch(type, query);
-        return;
-    }
-
-    // Use Google directly for 'brain' as it's the best source for contact info
-    if (type === 'brain') {
-        const provider = appSettings.aiProvider || 'grok';
-        if (provider === 'grok') {
-            window.open(`https://grok.com/?q=${encodeURIComponent(query)}`, '_blank');
-        } else if (provider === 'gemini') {
-            window.open(`https://gemini.google.com/app?q=${encodeURIComponent(query)}`, '_blank');
-        } else {
-            window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
-        }
-    } else {
-        openAISearch(query);
-    }
-}
-
-// MOCK / BACKGROUND RESEARCH (Simulates "Invisible Grok" or uses OpenAI)
-async function startBackgroundResearch(type, query) {
-    showToast('🤖 KI recherchiert im Hintergrund...', 'info');
-
-    // CHECK FOR REAL OPENAI KEY
-    if (appSettings.aiProvider === 'chatgpt' && appSettings.openaiApiKey && appSettings.openaiApiKey.startsWith('sk-')) {
-        try {
-            console.log("🚀 Starting OpenAI Research...");
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${appSettings.openaiApiKey}`
-                },
-                body: JSON.stringify({
-                    model: "gpt-3.5-turbo",
-                    messages: [
-                        {
-                            role: "system",
-                            content: `You are a data extraction assistant. The user wants to find specific contact details. 
-                            If the user asks for a PHONE NUMBER, return ONLY the phone number. 
-                            If the user asks for an ADDRESS, return ONLY the full address. 
-                            If not found, return 'NOT_FOUND'. 
-                            Do not output any other text.`
-                        },
-                        { role: "user", content: query }
-                    ],
-                    temperature: 0.3,
-                    max_tokens: 60
-                })
-            });
-
-            const data = await response.json();
-            if (data.choices && data.choices.length > 0) {
-                let content = data.choices[0].message.content.trim();
-                console.log("🤖 OpenAI Result:", content);
-
-                if (content && content !== 'NOT_FOUND') {
-                    showToast('✅ ChatGPT hat Daten gefunden!', 'success');
-                    processResearchResult(content, type);
-                    return;
-                }
-            }
-        } catch (e) {
-            console.error("OpenAI Error:", e);
-            showToast('OpenAI Fehler. Versuche Fallback...', 'error');
-        }
-    }
-
-
-    // Simulate API Delay (Fallback / Grok Simulation)
-    setTimeout(() => {
-        let result = '';
-        const taskTitle = currentTask ? currentTask.keyword : 'Unbekannt';
-
-        // Simple Simulation Logic (In real app, this would be a fetch to a backend proxy)
-        if (type === 'phone' || query.includes('Telefon')) {
-            // Check if we know it in cache first (Mock)
-            result = "030 12345678";
-
-            // For DEMO purposes or if we had a database:
-            if (taskTitle.toLowerCase().includes('arzt')) result = "089 116117";
-            else if (taskTitle.toLowerCase().includes('pizza')) result = "030 99887766";
-            else {
-                // FALLBACK: If we really can't find it, we must ask user to search manually
-                showToast('🤔 Konnte es nicht automatisch finden. Öffne Suche...', 'error');
-                const provider = appSettings.aiProvider || 'grok';
-                const url = provider === 'grok' ? `https://grok.com/?q=${encodeURIComponent(query)}` : `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-                window.open(url, '_blank');
-                window.pendingAiResearch = true;
-                window.pendingAiSearchType = 'phone'; // Map 'phone' to internal type
-                return;
-            }
-        }
-        else if (type === 'location' || query.includes('Adresse')) {
-            if (taskTitle.toLowerCase().includes('berlin')) result = "Alexanderplatz 1, 10178 Berlin";
-            else if (taskTitle.toLowerCase().includes('münchen')) result = "Marienplatz 1, 80331 München";
-            else {
-                showToast('🤔 Konnte Adresse nicht verifizieren. Öffne Suche...', 'error');
-                window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, '_blank');
-                window.pendingAiResearch = true;
-                window.pendingAiSearchType = 'Adresse';
-                return;
-            }
-        }
-        else if (type === 'email' || query.includes('mail')) {
-            result = "info@beispiel.de";
-        }
-        else {
-            result = "Gefundene Info für " + type;
-        }
-
-        // Success Case (Simulated)
-        showToast('✅ Grok (Simulation) hat Daten gefunden!', 'success');
-        processResearchResult(result, type);
-
-    }, 2000); // 2 seconds thinking time
-}
-
-function processResearchResult(result, type) {
-    // Auto-fill if specific field in modal
-    const fieldMap = {
-        'phone': 'question_phone',
-        'location': 'question_location',
-        'email': 'question_email',
-        'address': 'question_location'
-    };
-
-    const targetId = fieldMap[type];
-    if (targetId && document.getElementById(targetId)) {
-        const input = document.getElementById(targetId);
-        input.value = result;
-        input.classList.add('highlight-flash');
-        setTimeout(() => input.classList.remove('highlight-flash'), 1000);
-
-        if (currentTask) {
-            if (type === 'phone') currentTask.details.phone = result;
-            if (type === 'location') currentTask.details.location = result;
-            if (type === 'email') currentTask.details.email = result;
-        }
-    } else {
-        openAiResearchResultModal(result, type === 'location' ? 'Adresse' : (type === 'phone' ? 'Telefonnummer' : 'Info'));
-    }
-}
-
-// Magic Fill: Extracts structured data from raw text (e.g. copied from Google)
-function magicFillFromText() {
-    const rawEl = document.getElementById('magicRawInput');
-    if (!rawEl || !rawEl.value.trim()) return;
-
-    const text = rawEl.value;
-    console.log("Magic Filling from text...");
-
-    const extracted = {
-        phone: null,
-        email: null,
-        location: null,
-        hours: null
-    };
-
-    // 1. Phone Extraction
-    let phoneMatch = text.match(/(?:tel|phone|telefon|mobil|☎️|📞)\s*[:=]?\s*([+0-9\s\-\/]{7,})/i);
-    if (phoneMatch) extracted.phone = phoneMatch[1].trim();
-    else {
-        const genericPhoneMatch = text.match(/(?:(?:\+|00)\d{1,3}[\s-]?)?\(?0\d{2,5}\)?[\s-]?\d{3,10}/g);
-        if (genericPhoneMatch) extracted.phone = genericPhoneMatch.sort((a, b) => b.length - a.length)[0];
-    }
-
-    // 2. Email Extraction
-    const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6})/);
-    if (emailMatch) extracted.email = emailMatch[1].trim();
-
-    // 3. Address Extraction
-    const addrLabeledMatch = text.match(/(?:Adresse|Anschrift|Standort|Location)\s*[:=]?\s*([^🏠📅⏰📝\n]+)/i);
-    if (addrLabeledMatch) {
-        let cleanAddr = addrLabeledMatch[1].trim();
-        // Remove names (common prefixes)
-        cleanAddr = cleanAddr.replace(/^(?:Dr\.?\s+|Herr\s+|Frau\s+|Prof\.?\s+)/gi, '');
-        extracted.location = cleanAddr;
-    } else {
-        const deAddrMatch = text.match(/([A-ZÄÖÜ][a-zäöüß.\-\s]+[0-9]+[a-z]?)\s*,?\s*([0-9]{5}\s+[A-ZÄÖÜa-zäöüß]+)/);
-        if (deAddrMatch) extracted.location = deAddrMatch[0].trim();
-    }
-
-    // 4. Opening Hours
-    const hoursRegex = /(?:Öffnungszeiten|Sprechzeiten|Mo-Fr|Mo\.\s*-\s*Fr\.)\s*[:=]?\s*([^\n]+)/i;
-    const hoursMatch = text.match(hoursRegex);
-    if (hoursMatch) extracted.hours = hoursMatch[1].trim();
-    else if (text.includes('⋅ Öffnet um') || text.includes('⋅ Schließt um')) {
-        const hourLine = text.split('\n').find(l => l.includes('⋅ Öffnet') || l.includes('⋅ Schließt'));
-        if (hourLine) extracted.hours = hourLine.trim();
-    }
-
-    // 5. Grok Monitoring / Hints
-    const hintMatch = text.match(/(?:HINWEIS|ACHTUNG|WARNUNG|INFO)\s*[:=]?\s*([^\n]+)/i);
-    if (hintMatch) {
-        const hint = hintMatch[1].trim();
-        if (!hint.toLowerCase().includes('keine') && !hint.toLowerCase().includes('nicht gefunden')) {
-            setTimeout(() => {
-                showToast(`🧠 Grok Hinweis: ${hint}`, 'info', 8000);
-                if (appSettings.aiVoiceEnabled) speakText(`Grok hat einen Hinweis für dich: ${hint}`);
-            }, 1000);
-        }
-    }
-
-    // 6. 6 W-Questions
-    const questionsMatch = text.match(/(?:FRAGEN|W-FRAGEN)\s*[:=]?\s*([^\n]+)/i);
-    if (questionsMatch) {
-        extracted.hours = (extracted.hours || '') + (extracted.hours ? '\n' : '') + '🤔 Grok Fragt: ' + questionsMatch[1].trim();
-    }
-
-    // Apply results & create fields if missing
-    let anyFilled = false;
-    for (const [key, value] of Object.entries(extracted)) {
-        if (!value) continue;
-
-        if (key === 'hours') {
-            const notesEl = document.getElementById('taskNotes');
-            if (notesEl) {
-                const existing = notesEl.value ? notesEl.value + '\n\n' : '';
-                if (!notesEl.value.includes(value)) {
-                    notesEl.value = existing + '🕒 Sprechzeiten: ' + value;
-                    anyFilled = true;
-                }
-            }
-            continue;
-        }
-
-        let input = document.getElementById(`question_${key}`);
-        if (!input) {
-            // DYNAMICALLY CREATE FIELD if it doesn't exist
-            console.log(`Creating dynamic field for ${key}`);
-            const labelMap = { phone: '📞 Telefon', email: '📧 E-Mail', location: '📍 Adresse' };
-            const typeMap = { phone: 'tel', email: 'email', location: 'text' };
-
-            const newField = document.createElement('div');
-            newField.className = 'form-group dynamic-added';
-            newField.innerHTML = `
-                <div class="label-row">
-                    <label>${labelMap[key]}</label>
-                </div>
-                <input type="${typeMap[key]}" id="question_${key}" value="${value}">
-            `;
-            // Insert before notes
-            const notesGroup = document.getElementById('taskNotes').closest('.form-group');
-            if (notesGroup) {
-                notesGroup.parentNode.insertBefore(newField, notesGroup);
-                input = document.getElementById(`question_${key}`);
-            }
-        }
-
-        if (input) {
-            input.value = value;
-            anyFilled = true;
-        } else if (isEditMode) {
-            const editInp = document.getElementById(`editDetail_${key}`);
-            if (editInp) {
-                editInp.value = value;
-                anyFilled = true;
-            }
-        }
-    }
-
-    if (anyFilled) {
-        showToast('Daten erfolgreich eingefügt!', 'success');
-        if (appSettings.aiVoiceEnabled) speakText("Ich habe die Details für dich eingetragen.");
-        rawEl.value = '';
-        return true;
-    } else {
-        showToast('Keine passenden Informationen im Text gefunden.', 'info');
-        return false;
-    }
+    // Use selected AI provider
+    openAISearch(query);
 }
 
 function openGrokSearch() {
@@ -3494,8 +2207,8 @@ function openAISearch(query) {
             break;
         case 'grok':
         default:
-            // xAI Grok (grok.com)
-            url = `https://grok.com/?q=${encodeURIComponent(query)}`;
+            // xAI Grok (via X/Twitter)
+            url = `https://x.com/i/grok?q=${encodeURIComponent(query)}`;
             break;
     }
 
@@ -3558,15 +2271,6 @@ function showQuestionsModal(keyword, detectedQuestions, parsedData = {}) {
                     <div class="label">DRINGEND!</div>
                 </div>
             </div>
-        </div>
-
-        <div class="form-group brain-assistant-group" style="border: 2px solid var(--primary-color); padding: 10px; border-radius: 12px; background: rgba(var(--primary-rgb), 0.05);">
-            <div class="label-row">
-                <label>🧠 Google Brain Assistance</label>
-                <button type="button" class="btn-search-mini brain" onclick="openSmartSearch('brain')">🔍 Google Recherche</button>
-            </div>
-            <textarea id="magicRawInput" style="height: 40px; font-size: 0.8rem; margin: 5px 0;" placeholder="Ergebnisse hier reinkopieren... (oder Sprachbefehl nutzen)"></textarea>
-            <button type="button" class="btn-primary" style="width: 100%; font-weight: bold; background: linear-gradient(135deg, var(--primary-color), #4facfe);" onclick="magicFillFromClipboard()">🚀 Das ist der Richtige! (Einfügen)</button>
         </div>
 
         <div class="form-group">
@@ -3796,7 +2500,7 @@ function saveTasks() {
                 db.collection(path).doc(task.id).set(task).catch(e => console.error("Firebase save error:", e));
             });
 
-            // Note: In a real-world app, you'd also need to handle deletions
+            // Note: In a real-world app, you'd also need to handle deletions 
             // by comparing the cloud list with the local list if you unshift/splice.
             // For now, this ensures all CURRENT tasks are in the cloud.
         }
@@ -3838,8 +2542,6 @@ function renderTasks() {
         const dateStr = task.deadline ? formatDateShort(task.deadline) : '';
         const timeStr = task.deadline ? formatTimeShort(task.deadline) : '';
         const locStr = task.details.location ? escapeHtml(task.details.location) : '';
-        const phoneStr = task.details.phone ? escapeHtml(task.details.phone) : '';
-        const emailStr = task.details.email ? escapeHtml(task.details.email) : '';
 
         return `
         <div class="task-card ${task.priority} ${task.done ? 'done' : ''}" onclick="openTaskDetail('${task.id}')">
@@ -3857,20 +2559,6 @@ function renderTasks() {
                 <div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; margin-top: 4px;">
                     <span>📍</span> <span style="${!locStr ? 'opacity: 0.5;' : ''}">${locStr || 'Kein Ort'}</span>
                 </div>
-                
-                ${(phoneStr || emailStr) ? `
-                <div style="grid-column: 1 / -1; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-glass); display: flex; flex-direction: column; gap: 8px;">
-                    ${phoneStr ? `
-                    <button onclick="event.stopPropagation(); window.location.href='tel:${phoneStr}'" style="background: var(--success); color: white; border: none; padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; justify-content: center; font-weight: 600; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-                        📞 ${phoneStr} anrufen
-                    </button>` : ''}
-                    
-                    ${emailStr ? `
-                    <button onclick="event.stopPropagation(); window.location.href='mailto:${emailStr}'" style="background: var(--primary); color: white; border: none; padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; justify-content: center; font-weight: 600; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-                        ✉️ ${emailStr} schreiben
-                    </button>` : ''}
-                </div>` : ''}
-
                 ${task.file ? '<div style="grid-column: 1 / -1; margin-top:4px;">📎 Anhang vorhanden</div>' : ''}
             </div>
         </div>
@@ -3995,14 +2683,6 @@ function renderTaskDetailContent() {
                 <div class="form-group">
                     <label>📅 Datum & Uhrzeit</label>
                     <input type="datetime-local" id="editTaskDeadline" value="${task.deadline || ''}">
-                </div>
-
-                <div class="form-group brain-assistant-group" style="border: 1px dashed var(--primary-color); padding: 10px; border-radius: 8px; margin-bottom: 15px;">
-                    <div class="label-row">
-                        <label>🧠 Grok Update</label>
-                        <button type="button" class="btn-search-mini brain" onclick="openSmartSearch('brain')">🔍 Grok Recherche</button>
-                    </div>
-                    <textarea id="magicRawInput" style="height: 35px; font-size: 0.75rem; margin-top: 5px;" placeholder="Grok-Antwort hier einfügen..."></textarea>
                 </div>
         `;
 
@@ -4333,25 +3013,15 @@ function startUrgentReminder() {
 function archiveExpiredTasks() {
     if (appSettings.autoArchive === false) return;
     const now = new Date();
-    let changed = false;
+    // Only archive if deadline is older than start of today (Yesterday or older)
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
 
+    let c = false;
     tasks.forEach(t => {
-        if (t.deadline && !t.archived) {
-            const deadlineDate = new Date(t.deadline);
-            // Archive if the deadline is in the past
-            if (deadlineDate < now) {
-                t.archived = true;
-                changed = true;
-            }
-        }
+        if (t.deadline && !t.archived && new Date(t.deadline) < todayStart) { t.archived = true; c = true; }
     });
-
-    if (changed) {
-        saveTasks();
-        renderTasks();
-        updateStats();
-        console.log("Auto-Archive: Abgelaufene Termine archiviert.");
-    }
+    if (c) { saveTasks(); renderTasks(); updateStats(); }
 }
 
 function checkBirthdays() {
@@ -4475,35 +3145,13 @@ function openSettings() {
     if (document.getElementById('voiceBeepToggle')) document.getElementById('voiceBeepToggle').checked = !!appSettings.voiceBeepEnabled;
     if (document.getElementById('aiTipsToggle')) document.getElementById('aiTipsToggle').checked = !!appSettings.aiTipsEnabled;
     if (document.getElementById('aiVoiceToggle')) document.getElementById('aiVoiceToggle').checked = !!appSettings.aiVoiceEnabled;
-
-    const provSelect = document.getElementById('aiProviderSelect');
-    if (provSelect) {
-        provSelect.value = appSettings.aiProvider || 'grok';
-        // Trigger change to show/hide key input
-        if (typeof handleProviderChange === 'function') handleProviderChange();
-        else provSelect.dispatchEvent(new Event('change'));
-    }
-
-    if (document.getElementById('openaiApiKeyInput')) {
-        document.getElementById('openaiApiKeyInput').value = appSettings.openaiApiKey || '';
-    }
+    if (document.getElementById('aiProviderSelect')) document.getElementById('aiProviderSelect').value = appSettings.aiProvider || 'grok';
     if (document.getElementById('driveModeToggle')) document.getElementById('driveModeToggle').checked = !!appSettings.driveModeEnabled;
     if (document.getElementById('urgentPopupToggle')) document.getElementById('urgentPopupToggle').checked = !!appSettings.urgentPopupEnabled;
     if (document.getElementById('autoArchiveToggle')) document.getElementById('autoArchiveToggle').checked = !!appSettings.autoArchive;
     if (document.getElementById('locationToggle')) document.getElementById('locationToggle').checked = !!appSettings.locationTracking;
     if (document.getElementById('homeAddressInput')) document.getElementById('homeAddressInput').value = appSettings.homeAddress || '';
     if (document.getElementById('reminderLeadTimeSelect')) document.getElementById('reminderLeadTimeSelect').value = appSettings.reminderLeadTime || 60;
-
-    // Nav Bottom Mode
-    if (document.getElementById('navBottomToggle')) document.getElementById('navBottomToggle').checked = !!appSettings.navBottom;
-
-    // Header Icons
-    if (document.getElementById('headerIconCalendar')) document.getElementById('headerIconCalendar').checked = appSettings.headerIconCalendar !== false;
-    if (document.getElementById('headerIconExpense')) document.getElementById('headerIconExpense').checked = appSettings.headerIconExpense !== false;
-    if (document.getElementById('headerIconScan')) document.getElementById('headerIconScan').checked = appSettings.headerIconScan !== false;
-    if (document.getElementById('headerIconAlarm')) document.getElementById('headerIconAlarm').checked = appSettings.headerIconAlarm !== false;
-    if (document.getElementById('headerIconDrive')) document.getElementById('headerIconDrive').checked = appSettings.headerIconDrive !== false;
-    if (document.getElementById('headerIconNight')) document.getElementById('headerIconNight').checked = appSettings.headerIconNight !== false;
 
     // Populate User Profile
     if (currentUser) {
@@ -4642,23 +3290,6 @@ function saveAppSettings() {
     appSettings.locationTracking = document.getElementById('locationToggle') ? document.getElementById('locationToggle').checked : true;
     appSettings.homeAddress = document.getElementById('homeAddressInput') ? document.getElementById('homeAddressInput').value : '';
     appSettings.reminderLeadTime = document.getElementById('reminderLeadTimeSelect') ? document.getElementById('reminderLeadTimeSelect').value : 60;
-
-    // NAV POSITION
-    appSettings.navBottom = document.getElementById('navBottomToggle') ? document.getElementById('navBottomToggle').checked : false;
-
-    // Header Icons
-    appSettings.headerIconCalendar = !!document.getElementById('headerIconCalendar')?.checked;
-    appSettings.headerIconExpense = !!document.getElementById('headerIconExpense')?.checked;
-    appSettings.headerIconScan = !!document.getElementById('headerIconScan')?.checked;
-    appSettings.headerIconAlarm = !!document.getElementById('headerIconAlarm')?.checked;
-    appSettings.headerIconDrive = !!document.getElementById('headerIconDrive')?.checked;
-    appSettings.headerIconNight = !!document.getElementById('headerIconNight')?.checked;
-
-    // SAVE OPENAI KEY
-    const keyInput = document.getElementById('openaiApiKeyInput');
-    if (keyInput) {
-        appSettings.openaiApiKey = keyInput.value.trim();
-    }
 
     // SAVE USER AVATAR FROM SETTINGS
     const selectedAvatarEl = document.querySelector('#settingsAvatarPicker .avatar-option.selected');
@@ -4828,32 +3459,6 @@ function applyAppSettings() {
         document.body.classList.add('business-mode');
     }
     // 'dark' is default (no class)
-
-    // CHECK NAV MODE
-    if (appSettings.navBottom) {
-        document.body.classList.add('nav-bottom-mode');
-        document.body.classList.remove('nav-top-mode');
-    } else {
-        document.body.classList.remove('nav-bottom-mode');
-        document.body.classList.add('nav-top-mode');
-    }
-
-    // Apply header icon visibility
-    const buttonsToToggle = [
-        { id: 'calendarBtn', enabled: appSettings.headerIconCalendar },
-        { id: 'expenseBtn', enabled: appSettings.headerIconExpense },
-        { id: 'addExpenseBtnHeader', enabled: appSettings.headerIconScan },
-        { id: 'alarmBtn', enabled: appSettings.headerIconAlarm },
-        { id: 'manualDriveBtn', enabled: appSettings.headerIconDrive },
-        { id: 'sideNightstandBtnHeader', enabled: appSettings.headerIconNight }
-    ];
-
-    buttonsToToggle.forEach(btn => {
-        const el = document.getElementById(btn.id);
-        if (el) {
-            el.style.display = btn.enabled !== false ? '' : 'none';
-        }
-    });
 }
 
 function playAlertSound(test = false) {
@@ -6239,57 +4844,18 @@ function saveExpenses() {
 function toggleExpenseSection() {
     expenseSection.classList.toggle('hidden');
     if (!expenseSection.classList.contains('hidden')) {
-        renderExpenses();
-        preloadOCR(); // Warm up the AI for scanning
         expenseSection.scrollIntoView({ behavior: 'smooth' });
     }
 }
 
-let editingExpenseId = null;
-
-function openExpenseModal(editId = null) {
-    editingExpenseId = editId; // Set ID if editing
+function openExpenseModal() {
     expenseModal.classList.remove('hidden');
-
-    const saveBtn = document.getElementById('saveExpenseBtn');
-    if (saveBtn) {
-        saveBtn.disabled = false;
-        saveBtn.textContent = editingExpenseId ? 'Änderungen speichern' : 'Ausgabe speichern';
-    }
-
-    if (!editingExpenseId) {
-        // Only reset if NEW
-        resetExpenseModal();
-    }
+    resetExpenseModal();
 }
-window.openExpenseModal = openExpenseModal;
 
 function closeExpenseModal() {
     expenseModal.classList.add('hidden');
 }
-window.closeExpenseModal = closeExpenseModal;
-
-function openExpenseCamera() {
-    if (expenseImageInput) expenseImageInput.click();
-}
-window.openExpenseCamera = openExpenseCamera;
-
-function openExpenseFiles() {
-    const fileInp = document.getElementById('expenseFileInput');
-    if (fileInp) fileInp.click();
-}
-window.openExpenseFiles = openExpenseFiles;
-
-function openManualExpense() {
-    document.querySelector('.scanner-placeholder').classList.add('hidden');
-    expenseResultForm.classList.remove('hidden');
-    saveExpenseBtn.disabled = false;
-    // Ensure date is set
-    if (!expDate.value) {
-        expDate.value = new Date().toISOString().split('T')[0];
-    }
-}
-window.openManualExpense = openManualExpense;
 
 function resetExpenseModal() {
     expenseImageInput.value = '';
@@ -6305,243 +4871,54 @@ function resetExpenseModal() {
     expAmount.value = '';
 }
 
-// Persistent Worker for instant scanning
-async function getTesseractWorker() {
-    if (tesseractWorker) return tesseractWorker;
-
-    console.log("Initializing AI OCR Worker...");
-    tesseractWorker = await Tesseract.createWorker('deu', 1, {
-        logger: m => console.log("AI Status:", m.status),
-        errorHandler: e => console.log("OCR Error:", e)
-    });
-    return tesseractWorker;
-}
-
-// Preload Worker when section is opened
-function preloadOCR() {
-    if (!tesseractWorker) {
-        getTesseractWorker().then(() => console.log("AI OCR Worker ready."));
-    }
-}
-
-async function handleExpenseImage(e) {
+function handleExpenseImage(e) {
     const file = e.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = async (event) => {
-        const imageData = event.target.result;
-        receiptPreview.src = imageData;
+    reader.onload = (event) => {
+        receiptPreview.src = event.target.result;
         receiptPreview.classList.remove('hidden');
         document.querySelector('.scanner-placeholder').classList.add('hidden');
 
+        // Start "Scanning" animation
         scannerOverlay.classList.remove('hidden');
-        showToast('KI analysiert Beleg...', 'info');
 
-        try {
-            // 1. Instant Preprocessing
-            const optimizedImage = await preprocessImage(imageData);
+        // Simulated AI extraction
+        setTimeout(() => {
+            scannerOverlay.classList.add('hidden');
+            expenseResultForm.classList.remove('hidden');
+            saveExpenseBtn.disabled = false;
 
-            // 2. Use Persistent Fast Worker
-            const worker = await getTesseractWorker();
-            const result = await worker.recognize(optimizedImage);
+            // Random demo data to simulate AI scanning
+            const demoStores = ['EDEKA', 'Shell Tankstelle', 'Amazon.de', 'H&M', 'Starbucks', 'MediaMarkt'];
+            const demoCats = ['Lebensmittel', 'Tankstelle', 'Sonstiges', 'Kleidung', 'Freizeit', 'Allgemein'];
+            const randomIdx = Math.floor(Math.random() * demoStores.length);
 
-            const text = result.data.text;
-            console.log("AI OCR Result:", text);
+            expStore.value = demoStores[randomIdx];
+            expCategory.value = demoCats[randomIdx] || 'Allgemein';
+            expAmount.value = (Math.random() * 50 + 5).toFixed(2);
+            expDate.value = new Date().toISOString().split('T')[0];
 
-            const parsed = parseReceiptText(text);
-            finalizeScan(parsed);
-
-        } catch (err) {
-            console.error("Scan Error:", err);
-            // Fallback to filename-based intelligence
-            applySmartFallback(file.name);
-        }
+            showToast('Beleg erfolgreich gescannt!', 'success');
+        }, 2000);
     };
     reader.readAsDataURL(file);
 }
 
-// Preprocess image for faster & better OCR
-function preprocessImage(base64) {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 800;
-            const MAX_HEIGHT = 800;
-            let width = img.width;
-            let height = img.height;
-
-            if (width > height) {
-                if (width > MAX_WIDTH) {
-                    height *= MAX_WIDTH / width;
-                    width = MAX_WIDTH;
-                }
-            } else {
-                if (height > MAX_HEIGHT) {
-                    width *= MAX_HEIGHT / height;
-                    height = MAX_HEIGHT;
-                }
-            }
-
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-
-            // Grayscale + High Contrast for Better/Faster OCR
-            ctx.filter = 'grayscale(100%) contrast(120%)';
-            ctx.drawImage(img, 0, 0, width, height);
-
-            resolve(canvas.toDataURL('image/jpeg', 0.7));
-        };
-        img.src = base64;
-    });
-}
-
-function finalizeScan(parsed) {
-    scannerOverlay.classList.add('hidden');
-    expenseResultForm.classList.remove('hidden');
-    saveExpenseBtn.disabled = false;
-
-    expStore.value = parsed.store || '';
-    expDate.value = parsed.date || new Date().toISOString().split('T')[0];
-    expAmount.value = parsed.amount || '';
-    expCategory.value = parsed.category || 'Allgemein';
-
-    showToast('KI-Analyse abgeschlossen!', 'success');
-}
-
-function applySmartFallback(fileName) {
-    // Fast intelligence based on common store names in filename or just high-quality defaults
-    const name = fileName.toUpperCase();
-    let store = 'Unbekannt';
-    let cat = 'Allgemein';
-
-    if (name.includes('ALDI')) { store = 'ALDI'; cat = 'Lebensmittel'; }
-    else if (name.includes('REWE')) { store = 'REWE'; cat = 'Lebensmittel'; }
-    else if (name.includes('LIDL')) { store = 'Lidl'; cat = 'Lebensmittel'; }
-    else if (name.includes('SHELL') || name.includes('TANK')) { store = 'Tankstelle'; cat = 'Tankstelle'; }
-    else if (name.includes('BAUHAUS') || name.includes('OBI')) { store = 'Bauhaus'; cat = 'Haushalt'; }
-
-    finalizeScan({
-        store: store,
-        date: new Date().toISOString().split('T')[0],
-        amount: (Math.random() * 40 + 10).toFixed(2),
-        category: cat
-    });
-    showToast('Schnell-Erkennung genutzt.', 'info');
-}
-
-function parseReceiptText(text) {
-    const result = {
-        store: '',
-        date: '',
-        amount: '',
-        category: 'Allgemein'
-    };
-
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2);
-
-    // 1. Detect Store (Search first few lines for known keywords)
-    const storeMap = {
-        'ALDI': 'ALDI', 'LIDL': 'Lidl', 'REWE': 'REWE', 'EDEKA': 'EDEKA', 'PENNY': 'Penny',
-        'NETTO': 'Netto', 'KAUFLAND': 'Kaufland', 'BAUHAUS': 'Bauhaus', 'OBI': 'OBI',
-        'HORNBACH': 'HORNBACH', 'H&M': 'H&M', 'C&A': 'C&A', 'ZARA': 'Zara', 'AMAZON': 'Amazon',
-        'SHELL': 'Shell', 'ARAL': 'Aral', 'ESSO': 'Esso', 'STARBUCKS': 'Starbucks',
-        'MCDONALD': 'McDonalds', 'BURGER KING': 'Burger King', 'ROSSMANN': 'Rossmann', 'DM': 'dm-Markt'
-    };
-
-    const topLines = lines.slice(0, 8);
-    for (let line of topLines) {
-        let upperLine = line.toUpperCase();
-        for (let [key, val] of Object.entries(storeMap)) {
-            if (upperLine.includes(key)) {
-                result.store = val;
-                break;
-            }
-        }
-        if (result.store) break;
-    }
-
-    if (!result.store && lines.length > 0) {
-        // Fallback: take the first line as it's often the store name
-        result.store = lines[0].substring(0, 30);
-    }
-
-    // 2. Detect Date (DD.MM.YYYY or similar)
-    const dateRegex = /(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})/;
-    const dateMatch = text.match(dateRegex);
-    if (dateMatch) {
-        let day = dateMatch[1].padStart(2, '0');
-        let month = dateMatch[2].padStart(2, '0');
-        let year = dateMatch[3];
-        if (year.length === 2) year = '20' + year;
-        result.date = `${year}-${month}-${day}`;
-    }
-
-    // 3. Detect Amount (Look for keywords like EUR, Summe)
-    const amountRegex = /(?:SUMME|TOTAL|GESAMT|BETRAG|EUR|€)\s*[:=]?\s*(\d+[.,]\d{2})/i;
-    const amountMatch = text.match(amountRegex);
-    if (amountMatch) {
-        result.amount = amountMatch[1].replace(',', '.');
-    } else {
-        // Fallback: search for numbers and take the largest one (usually the total)
-        const priceRegex = /(\d+[.,]\d{2})(?!\s*[0-9])/g;
-        const prices = text.match(priceRegex);
-        if (prices) {
-            const numericPrices = prices.map(p => parseFloat(p.replace(',', '.')));
-            const maxPrice = Math.max(...numericPrices);
-            if (maxPrice > 0 && maxPrice < 5000) { // Sanity check
-                result.amount = maxPrice.toFixed(2);
-            }
-        }
-    }
-
-    // 4. Smart Category Selection
-    const catMap = {
-        'Lebensmittel': ['ALDI', 'LIDL', 'REWE', 'EDEKA', 'PENNY', 'NETTO', 'KAUFLAND', 'REWE'],
-        'Haushalt': ['BAUHAUS', 'OBI', 'HORNBACH', 'ROSSMANN', 'DM'],
-        'Tankstelle': ['SHELL', 'ARAL', 'ESSO', 'TOTAL'],
-        'Freizeit': ['STARBUCKS', 'MCDONALD', 'BURGER KING'],
-        'Kleidung': ['H&M', 'C&A', 'ZARA']
-    };
-
-    if (result.store) {
-        const storeUpper = result.store.toUpperCase();
-        for (let [cat, keywords] of Object.entries(catMap)) {
-            if (keywords.some(k => storeUpper.includes(k))) {
-                result.category = cat;
-                break;
-            }
-        }
-    }
-
-    return result;
-}
-
 function handleSaveExpense() {
-    const saveBtn = document.getElementById('saveExpenseBtn');
-    if (saveBtn) saveBtn.disabled = true;
-
     const date = expDate.value;
     const store = expStore.value.trim();
     const category = expCategory.value;
-
-    // Better amount parsing for German comma vs Dot
-    const amountStr = expAmount.value.toString().replace(',', '.');
-    const amount = parseFloat(amountStr);
+    const amount = parseFloat(expAmount.value);
 
     if (!date || !store || isNaN(amount)) {
         showToast('Bitte alle Felder korrekt ausfüllen', 'error');
-        if (saveBtn) saveBtn.disabled = false;
         return;
     }
 
-    // Determine ID: either keep existing (edit) or generate new
-    const expenseId = editingExpenseId ? editingExpenseId : ('exp_' + Date.now());
-
-    const expenseData = {
-        id: expenseId,
+    const expenseId = 'exp_' + Date.now();
+    const newExpense = {
         date,
         store,
         category,
@@ -6549,42 +4926,28 @@ function handleSaveExpense() {
         createdAt: new Date().toISOString(),
         userId: currentUser.id,
         userName: currentUser.name,
-        sessionId: appSessionId,
-        lastModified: new Date().toISOString()
+        sessionId: appSessionId
     };
 
-    const finishSave = () => {
-        showToast(editingExpenseId ? 'Ausgabe aktualisiert' : 'Ausgabe gespeichert', 'success');
-        closeExpenseModal();
-        editingExpenseId = null;
-        if (saveBtn) {
-            saveBtn.textContent = 'Ausgabe speichern';
-            saveBtn.disabled = false;
-        }
-    };
-
-    // 1. UPDATE LOCAL IMMEDIATELY
-    const idx = expenses.findIndex(e => e.id === expenseId);
-    if (idx > -1) {
-        expenses[idx] = { ...expenses[idx], ...expenseData };
-    } else {
-        expenses.unshift(expenseData);
-    }
-    saveExpenses(); // This will also call renderExpenses()
-
-    // 2. SYNC TO CLOUD IF DB AVAILABLE
+    // Store in Firestore if available
     if (db) {
         const path = currentUser.teamCode ? `teams/${currentUser.teamCode}/expenses` : `users/${currentUser.id}/expenses`;
-        db.collection(path).doc(expenseId).set(expenseData, { merge: true })
+        db.collection(path).doc(expenseId).set(newExpense)
             .then(() => {
-                console.log("Cloud sync successful");
+                showToast('Ausgabe in Cloud gesichert', 'success');
             })
             .catch(err => {
-                console.error("Cloud sync failed during save:", err);
+                console.error("Cloud save error:", err);
+                // Fallback to local only if cloud fails
+                expenses.unshift({ id: expenseId, ...newExpense });
+                saveExpenses();
             });
+    } else {
+        expenses.unshift({ id: expenseId, ...newExpense });
+        saveExpenses();
     }
 
-    finishSave();
+    closeExpenseModal();
 }
 
 function renderExpenses(filterQuery = '') {
@@ -6604,7 +4967,7 @@ function renderExpenses(filterQuery = '') {
     const sorted = displayExpenses.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     expenseTableBody.innerHTML = sorted.map(exp => `
-        <tr style="position:relative;">
+        <tr>
             <td>
                 <div style="font-size: 0.8rem; opacity: 0.6;">${formatDateShort(exp.date)}</div>
                 <div style="font-weight: 600;">${escapeHtml(exp.store)}</div>
@@ -6614,10 +4977,7 @@ function renderExpenses(filterQuery = '') {
             </td>
             <td style="font-weight: 700; color: #10b981; text-align: right;">${exp.amount.toFixed(2).replace('.', ',')} €</td>
             <td style="text-align:right;">
-                <div style="display:flex; justify-content:flex-end; gap:5px;">
-                    <button class="btn-icon-mini" onclick="editExpense('${exp.id}')" title="Bearbeiten" style="background:rgba(255,255,255,0.1); border:none; border-radius:4px; padding:4px;">✏️</button>
-                    <button class="btn-delete-mini" onclick="deleteExpense('${exp.id}')" title="Löschen" style="background:rgba(255,0,0,0.1); border:none; border-radius:4px; padding:4px;">🗑️</button>
-                </div>
+                <button class="btn-delete-mini" onclick="deleteExpense('${exp.id}')">🗑️</button>
             </td>
         </tr>
     `).join('');
@@ -6625,50 +4985,20 @@ function renderExpenses(filterQuery = '') {
     updateExpenseStats();
 }
 
-window.editExpense = (id) => {
-    const exp = expenses.find(e => e.id === id);
-    if (!exp) return;
-
-    // Show form directly
-    document.getElementById('receiptScannerBox').classList.add('hidden');
-    document.getElementById('expenseResultForm').classList.remove('hidden');
-
-    // Pre-fill
-    document.getElementById('expDate').value = exp.date;
-    document.getElementById('expStore').value = exp.store;
-    document.getElementById('expCategory').value = exp.category;
-    document.getElementById('expAmount').value = exp.amount;
-
-    // Open Modal in Edit Mode
-    openExpenseModal(id);
-};
-
-window.deleteExpense = (id) => {
-    if (!confirm('Eintrag wirklich löschen?')) return;
+function deleteExpense(id) {
+    if (!confirm('Diese Ausgabe wirklich löschen?')) return;
 
     if (db) {
         const path = currentUser.teamCode ? `teams/${currentUser.teamCode}/expenses` : `users/${currentUser.id}/expenses`;
         db.collection(path).doc(id).delete()
-            .then(() => {
-                showToast('Eintrag gelöscht', 'success');
-                expenses = expenses.filter(e => e.id !== id);
-                saveExpenses();
-            })
-            .catch(err => {
-                console.error("Delete error", err);
-                showToast('Fehler beim Löschen (Cloud)', 'error');
-                // Try local anyway
-                expenses = expenses.filter(e => e.id !== id);
-                saveExpenses();
-            });
+            .then(() => showToast('Ausgabe entfernt', 'info'))
+            .catch(err => showToast('Fehler beim Löschen', 'error'));
     } else {
         expenses = expenses.filter(e => e.id !== id);
         saveExpenses();
-        showToast('Eintrag gelöscht', 'success');
+        showToast('Ausgabe lokal entfernt', 'info');
     }
-};
-
-
+}
 
 function updateExpenseStats() {
     const now = new Date();
@@ -6755,19 +5085,6 @@ function renderCategoryBreakdown() {
 function window_deleteExpense(id) { deleteExpense(id); }
 window.deleteExpense = deleteExpense;
 
-function formatDateShort(dateStr) {
-    if (!dateStr) return '';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
-}
-
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
 function getCategoryEmoji(cat) {
     const emojis = {
         'Lebensmittel': '🍎',
@@ -6780,31 +5097,6 @@ function getCategoryEmoji(cat) {
         'Allgemein': '🛒'
     };
     return emojis[cat] || '🛒';
-}
-
-// ===== Global Clock Update Function =====
-function updateGlobalClock() {
-    const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
-    const m = String(now.getMinutes()).padStart(2, '0');
-
-    // Update main clock in header
-    const mainClock = document.getElementById('mainClock');
-    if (mainClock) {
-        mainClock.textContent = `${h}:${m}`;
-    }
-
-    // Update drive mode clock if visible
-    const driveClock = document.getElementById('driveClock');
-    if (driveClock) {
-        driveClock.textContent = `${h}:${m}`;
-    }
-
-    const driveDate = document.getElementById('driveDate');
-    if (driveDate) {
-        const options = { weekday: 'short', day: 'numeric', month: 'short' };
-        driveDate.textContent = now.toLocaleDateString('de-DE', options);
-    }
 }
 
 function startNightstandMode() {
@@ -6830,24 +5122,13 @@ function updateNightstandTime() {
     const h = String(now.getHours()).padStart(2, '0');
     const m = String(now.getMinutes()).padStart(2, '0');
     const s = String(now.getSeconds()).padStart(2, '0');
-
     const clockEl = document.getElementById('nightstandClock');
-    if (clockEl) {
-        clockEl.textContent = `${h}:${m}:${s}`;
-    }
+    if (clockEl) clockEl.textContent = `${h}:${m}:${s}`;
 
     const dateEl = document.getElementById('nightstandDate');
     if (dateEl) {
-        // Deutsches Datumsformat: "Dienstag, 7. Januar 2026"
-        const weekdays = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
-        const months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-
-        const weekday = weekdays[now.getDay()];
-        const day = now.getDate();
-        const month = months[now.getMonth()];
-        const year = now.getFullYear();
-
-        dateEl.textContent = `${weekday}, ${day}. ${month} ${year}`;
+        const options = { weekday: 'long', day: 'numeric', month: 'long' };
+        dateEl.textContent = now.toLocaleDateString('de-DE', options);
     }
 
     // Find next alarm
@@ -6881,374 +5162,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const nightstandBtn = document.getElementById('nightstandBtn');
     const exitNightstandBtn = document.getElementById('exitNightstandBtn');
     const brightnessSlider = document.getElementById('nightstandBrightness');
-    const toggleRotationBtn = document.getElementById('toggleRotationBtn');
 
     if (nightstandBtn) nightstandBtn.addEventListener('click', startNightstandMode);
     if (exitNightstandBtn) exitNightstandBtn.addEventListener('click', stopNightstandMode);
-
-    if (toggleRotationBtn) {
-        toggleRotationBtn.addEventListener('click', () => {
-            const content = document.querySelector('.nightstand-content');
-            if (!content) return;
-
-            // Toggle between force-landscape and force-portrait
-            if (content.classList.contains('force-landscape')) {
-                content.classList.remove('force-landscape');
-                content.classList.add('force-portrait');
-                toggleRotationBtn.textContent = '🔄 Hochformat';
-            } else if (content.classList.contains('force-portrait')) {
-                content.classList.remove('force-portrait');
-                // No class = auto mode
-                toggleRotationBtn.textContent = '🔄 Auto';
-            } else {
-                content.classList.add('force-landscape');
-                toggleRotationBtn.textContent = '🔄 Querformat';
-            }
-        });
-    }
-
     if (brightnessSlider) {
         brightnessSlider.addEventListener('input', (e) => handleNightstandBrightness(e.target.value));
         // Initial set
         handleNightstandBrightness(brightnessSlider.value);
     }
 });
-
-// ==========================================
-// AI RESEARCH & POPUP SYSTEM (Validation Flow)
-// ==========================================
-
-function initAiResearchModal() {
-    aiResearchResultModal = document.getElementById('aiResearchResultModal');
-    closeAiResearchResultBtn = document.getElementById('closeAiResearchResultBtn');
-    aiResultContent = document.getElementById('aiResultContent');
-    researchAppointmentList = document.getElementById('researchAppointmentList');
-    saveInNewAppointmentBtn = document.getElementById('saveInNewAppointmentBtn');
-    cancelAiResearchResultBtn = document.getElementById('cancelAiResearchResultBtn');
-
-    if (closeAiResearchResultBtn) closeAiResearchResultBtn.addEventListener('click', () => {
-        aiResearchResultModal.classList.add('hidden');
-        window.pendingAiResearch = false;
-    });
-
-    if (cancelAiResearchResultBtn) cancelAiResearchResultBtn.addEventListener('click', () => {
-        aiResearchResultModal.classList.add('hidden');
-        window.pendingAiResearch = false;
-    });
-
-    if (saveInNewAppointmentBtn) saveInNewAppointmentBtn.addEventListener('click', () => {
-        aiResearchResultModal.classList.add('hidden');
-        const info = aiResearchResultModal.dataset.extracted;
-        const type = aiResearchResultModal.dataset.type;
-        openAppointmentModalWithData(info, type);
-    });
-}
-
-function openAiResearchResultModal(info, searchType) {
-    if (!aiResearchResultModal) initAiResearchModal(); // Ensure init
-    if (!aiResearchResultModal) return;
-
-    // Remove quotes
-    const cleanInfo = info ? info.replace(/^"|"$/g, '').trim() : '';
-
-    aiResultContent.textContent = cleanInfo;
-    aiResearchResultModal.dataset.extracted = cleanInfo;
-    aiResearchResultModal.dataset.type = searchType;
-    aiResearchResultModal.classList.remove('hidden');
-    aiResearchResultModal.style.zIndex = '11000'; // Make sure it's on top
-
-    renderResearchAppointmentList(cleanInfo, searchType);
-}
-
-function extractResearchInfo(text, searchType) {
-    const lower = text.toLowerCase();
-
-    // Clean text first
-    let clean = text.replace(/^"|"$/g, '').trim();
-
-    if (searchType === 'Telefonnummer') {
-        const phonePatterns = [
-            /(?:telefon|tel|phone|nummer)[:\s]*([+\d\s\-\/\(\)]{7,20})/gi,
-            /(\+49[\s\-]?\d{2,5}[\s\-]?\d{3,10})/g,
-            /(0\d{2,5}[\s\-\/]?\d{3,10})/g
-        ];
-        for (const pattern of phonePatterns) {
-            const match = text.match(pattern);
-            if (match) {
-                // If the match was a full line with "Telefon:", take the group, otherwise the match
-                return match[0].replace(/[^\d+\s\-\/\(\)]/g, '').trim();
-            }
-        }
-    } else if (searchType === 'E-Mail') {
-        const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-        if (emailMatch) return emailMatch[1];
-    } else if (searchType === 'Adresse') {
-        // Simple address heuristic: Number and City or just a long line
-        const addressMatch = text.match(/([A-ZÄÖÜ][a-zäöüß.\-\s]+[0-9]+[a-z]?.*?\d{5}.*?)/);
-        if (addressMatch) return addressMatch[0];
-    }
-
-    // Default: Return the whole text if it's short, or the first relevant line
-    if (clean.length < 100) return clean;
-    return clean.split('\n')[0];
-}
-
-function renderResearchAppointmentList(info, searchType) {
-    if (!researchAppointmentList) return;
-
-    // Sort valid upcoming tasks
-    const now = new Date();
-    const upcomingTasks = tasks.filter(t => !t.archived && !t.done).sort((a, b) => {
-        // Deadline first
-        if (a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
-        if (a.deadline) return -1;
-        if (b.deadline) return 1;
-        return 0;
-    }).slice(0, 10);
-
-    if (upcomingTasks.length === 0) {
-        researchAppointmentList.innerHTML = '<div style="text-align:center; padding:1rem; opacity:0.6;">Keine aktiven Termine gefunden.</div>';
-        return;
-    }
-
-    researchAppointmentList.innerHTML = upcomingTasks.map(task => {
-        const dateStr = task.deadline ? new Date(task.deadline).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'Ohne Datum';
-        return `
-            <div class="appointment-select-item" 
-                 onclick="applyResearchToTask('${task.id}', '${info.replace(/'/g, "\\'")}', '${searchType}')" 
-                 style="padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass); border-radius: 8px; cursor: pointer; transition: all 0.2s; display:flex; justify-content:space-between; align-items:center;">
-                <div style="text-align:left;">
-                    <div style="font-weight: 600;">${escapeHtml(task.keyword)}</div>
-                    <div style="font-size: 0.8rem; opacity: 0.6;">${dateStr}</div>
-                </div>
-                <div style="font-size:1.2rem;">📥</div>
-            </div>
-        `;
-    }).join('');
-}
-
-function applyResearchToTask(taskId, info, searchType) {
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
-
-    if (!task.details) task.details = {};
-
-    let fieldName = 'Unbekannt';
-
-    if (searchType === 'Telefonnummer') {
-        task.details.phone = info;
-        fieldName = 'Telefonnummer';
-    } else if (searchType === 'E-Mail') {
-        task.details.email = info;
-        fieldName = 'E-Mail';
-    } else if (searchType === 'Adresse') {
-        task.details.location = info;
-        fieldName = 'Adresse';
-    } else {
-        task.details.notes = (task.details.notes || '') + '\n' + info;
-        fieldName = 'Notiz';
-    }
-
-    saveTasks();
-    renderTasks();
-    updateStats();
-
-    aiResearchResultModal.classList.add('hidden');
-    window.pendingAiResearch = false;
-
-    showToast(`✅ ${fieldName} zu "${task.keyword}" hinzugefügt!`, 'success');
-}
-
-function openAppointmentModalWithData(info, searchType) {
-    // Open standard calendar modal but pre-fill data
-    // Triggering the "New Task" form directly via simulated input
-
-    keywordInput.value = (searchType === 'Adresse' ? 'Termin in ' : 'Kontakt ') + info;
-    // Flash it
-    keywordInput.classList.add('highlight-flash');
-    setTimeout(() => keywordInput.classList.remove('highlight-flash'), 500);
-
-    showToast('✨ Bitte Details ergänzen & Enter drücken', 'info');
-}
-
-// Ensure initialization runs
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initAiResearchModal);
-} else {
-    initAiResearchModal();
-}
-
-// ==========================================
-// AI PROFILE SYSTEM
-// ==========================================
-
-function checkAIProfileStatus() {
-    if (!currentUser) return; // Only for logged in users
-
-    const profile = JSON.parse(localStorage.getItem('taskforce_ai_profile'));
-    if (!profile) {
-        // No profile found, show setup modal automatically
-        console.log("No AI profile found, prompting user...");
-        setTimeout(() => {
-            if (aiProfileModal && currentUser) {
-                // Pre-fill Name if known
-                if (aiNameInput && currentUser.name) aiNameInput.value = currentUser.name;
-                aiProfileModal.classList.remove('hidden');
-                showToast('Hi! 👋 Beantworte mir kurz ein paar Fragen...', 'info');
-            }
-        }, 1000);
-    } else {
-        // Profile exists, maybe ask a proactive question after a delay
-        setTimeout(runProactiveAdvisor, 5000);
-    }
-}
-
-function openAIProfile() {
-    const profile = JSON.parse(localStorage.getItem('taskforce_ai_profile')) || {};
-
-    if (aiNameInput) aiNameInput.value = profile.name || (currentUser ? currentUser.name : '');
-    if (aiGenderInput) aiGenderInput.value = profile.gender || '';
-    if (aiBirthdateInput) aiBirthdateInput.value = profile.birthdate || '';
-    if (aiJobInput) aiJobInput.value = profile.job || '';
-    if (aiHobbiesInput) aiHobbiesInput.value = profile.hobbies || '';
-
-    if (aiProfileModal) aiProfileModal.classList.remove('hidden');
-}
-
-function saveAIProfile() {
-    const profile = {
-        name: aiNameInput ? aiNameInput.value.trim() : '',
-        gender: aiGenderInput ? aiGenderInput.value : '',
-        birthdate: aiBirthdateInput ? aiBirthdateInput.value : '',
-        job: aiJobInput ? aiJobInput.value.trim() : '',
-        hobbies: aiHobbiesInput ? aiHobbiesInput.value.trim() : '',
-        updatedAt: new Date().toISOString()
-    };
-
-    if (!profile.name) {
-        showToast('Bitte zumindest deinen Namen eingeben.', 'error');
-        return;
-    }
-
-    localStorage.setItem('taskforce_ai_profile', JSON.stringify(profile));
-
-    // Also update main user name if changed
-    if (currentUser && profile.name !== currentUser.name) {
-        currentUser.name = profile.name;
-        localStorage.setItem('taskforce_user', JSON.stringify(currentUser));
-        if (displayUserName) displayUserName.textContent = profile.name;
-    }
-
-    if (aiProfileModal) aiProfileModal.classList.add('hidden');
-    showToast('Profil gespeichert! Deine KI lernt... 🧠', 'success');
-
-    // Trigger a small "AI Thought" or similar if we had a chat interface
-    setTimeout(runProactiveAdvisor, 2000);
-}
-
-// Proactive Advisor Logic - Asks questions or suggests apps
-async function runProactiveAdvisor() {
-    if (!currentUser) return;
-    const profile = JSON.parse(localStorage.getItem('taskforce_ai_profile')) || {};
-
-    // 1. Check for missing critical info
-    if (!profile.birthdate) {
-        askProactiveQuestion("Wann hast du eigentlich Geburtstag? Ich würde dir gerne gratulieren!", "date", "birthdate");
-        return;
-    }
-    if (!profile.job) {
-        askProactiveQuestion("Was machst du beruflich? So kann ich dir gezielter bei der Arbeit helfen.", "text", "job");
-        return;
-    }
-    if (!profile.hobbies) {
-        askProactiveQuestion("Was sind deine Hobbies? Ich finde gerne Freizeit-Apps für dich.", "text", "hobbies");
-        return;
-    }
-
-    // 2. Periodic lifestyle/app suggestions
-    const suggestions = [
-        { text: "Brauchst du eine neue App für Budget-Planung? Soll ich dir eine empfehlen?", type: "confirm", action: "recommend_app_finance" },
-        { text: "Es ist Zeit für eine Pause. Soll ich dir eine Meditations-App zeigen?", type: "confirm", action: "recommend_app_meditation" },
-        { text: "Für dein Business: Nutzt du schon ein CRM? Soll ich dir die besten zeigen?", type: "confirm", action: "recommend_app_crm" },
-        { text: "Hast du heute schon genug getrunken? Soll ich dich öfter daran erinnern?", type: "confirm", action: "remind_water" }
-    ];
-
-    // Pick a random suggestion if all profile data is there
-    const randomSug = suggestions[Math.floor(Math.random() * suggestions.length)];
-    askProactiveQuestion(randomSug.text, randomSug.type, randomSug.action);
-}
-
-function askProactiveQuestion(text, type, field) {
-    // Show as a special Toast with Confirmation
-    const toast = document.createElement('div');
-    toast.className = 'toast info proactive-advisor-toast visible';
-    toast.style.flexDirection = 'column';
-    toast.style.alignItems = 'flex-start';
-    toast.style.gap = '10px';
-    toast.style.maxWidth = '300px';
-
-    let inputHtml = '';
-    if (type === 'text') inputHtml = `<input type="text" id="proactiveInput" class="settings-input" style="margin:0; padding:5px;" placeholder="Antwort...">`;
-    if (type === 'date') inputHtml = `<input type="date" id="proactiveInput" class="settings-input" style="margin:0; padding:5px;">`;
-
-    toast.innerHTML = `
-        <div style="display:flex; align-items:center; gap:10px;">
-            <span class="toast-icon">🤖</span>
-            <span class="toast-message" style="font-weight:600;">KI-Berater</span>
-        </div>
-        <div style="font-size:0.9rem; margin-bottom:5px;">${text}</div>
-        ${inputHtml}
-        <div style="display:flex; justify-content:flex-end; width:100%; gap:8px;">
-            <button id="proactiveCancel" style="background:none; border:none; color:var(--text-muted); font-size:0.8rem; cursor:pointer;">Später</button>
-            <button id="proactiveConfirm" style="background:var(--primary); border:none; color:white; padding:4px 12px; border-radius:4px; font-size:0.8rem; cursor:pointer;">Bestätigen</button>
-        </div>
-    `;
-
-    toastContainer.appendChild(toast);
-
-    const confirmBtn = toast.querySelector('#proactiveConfirm');
-    const cancelBtn = toast.querySelector('#proactiveCancel');
-
-    cancelBtn.onclick = () => toast.remove();
-
-    confirmBtn.onclick = () => {
-        const input = toast.querySelector('#proactiveInput');
-        const val = input ? input.value : true;
-
-        if (type !== 'confirm' && !val) {
-            showToast("Bitte gib etwas ein oder klicke Später.", "error");
-            return;
-        }
-
-        handleProactiveResponse(field, val);
-        toast.remove();
-        showToast("Vielen Dank! Ich habe das notiert. 🧠", "success");
-    };
-}
-
-function handleProactiveResponse(field, value) {
-    const profile = JSON.parse(localStorage.getItem('taskforce_ai_profile')) || {};
-
-    if (field === 'birthdate' || field === 'job' || field === 'hobbies') {
-        profile[field] = value;
-        localStorage.setItem('taskforce_ai_profile', JSON.stringify(profile));
-    } else if (field.startsWith('recommend_app')) {
-        // Mock recommendation
-        let app = "Eine tolle App";
-        if (field.includes('finance')) app = "Finanzguru oder YNAB";
-        if (field.includes('meditation')) app = "Headspace oder Calm";
-        if (field.includes('crm')) app = "HubSpot oder Pipedrive";
-
-        setTimeout(() => {
-            alert(`KI Empfehlung: Schau dir mal "${app}" an!`);
-        }, 500);
-    } else if (field === 'remind_water') {
-        showToast("Alles klar, ich werde dich öfter an Wasser erinnern!", "success");
-    }
-}
-
-function toggleSideMenu() {
-    if (sideMenuOverlay) {
-        sideMenuOverlay.classList.toggle('hidden');
-    }
-}

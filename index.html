@@ -22,12 +22,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="menu-styles.css">
-    <link rel="stylesheet" href="icon-styles.css">
-    <link rel="stylesheet" href="wave-backgrounds.css">
-    <link rel="stylesheet" href="bottom-nav.css">
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 
 <body>
@@ -39,7 +33,7 @@
         <div class="login-container">
             <div class="login-header">
                 <div class="login-logo">
-                    <i data-lucide="zap" class="logo-icon-large"></i>
+                    <span class="logo-icon-large">⚡</span>
                 </div>
                 <h1>TaskForce</h1>
                 <p class="login-tagline">Dein persönlicher Alltags-Organizer</p>
@@ -52,16 +46,16 @@
 
             <div class="login-form" id="loginForm">
                 <div class="form-group">
-                    <label for="userNameLogin"><i data-lucide="user"></i> Dein Name</label>
+                    <label for="userNameLogin">👤 Dein Name</label>
                     <input type="text" id="userNameLogin" placeholder="Name eingeben..." autocomplete="name">
                 </div>
                 <div class="form-group">
-                    <label for="userPinLogin"><i data-lucide="lock"></i> 6-stelliger PIN</label>
+                    <label for="userPinLogin">🔐 6-stelliger PIN</label>
                     <input type="password" id="userPinLogin" placeholder="••••••" maxlength="6" inputmode="numeric"
                         pattern="[0-9]*">
                 </div>
                 <div class="form-group">
-                    <label for="teamCodeLogin"><i data-lucide="users"></i> Team-Code (optional)</label>
+                    <label for="teamCodeLogin">👥 Team-Code (optional)</label>
                     <input type="text" id="teamCodeLogin" placeholder="Team beitreten...">
                 </div>
                 <button id="loginBtn" class="btn-login">
@@ -111,13 +105,13 @@
             </div>
 
             <div class="login-footer">
-                <p><i data-lucide="save"></i> Deine Daten bleiben auf deinem Gerät</p>
+                <p>💾 Deine Daten bleiben auf deinem Gerät</p>
             </div>
 
             <!-- Install PWA Button -->
             <div id="installPrompt" class="install-prompt hidden">
                 <div class="install-content">
-                    <i data-lucide="download" class="install-icon"></i>
+                    <span class="install-icon">📲</span>
                     <div class="install-text">
                         <strong>App installieren!</strong>
                         <span>Für schnelleren Zugriff</span>
@@ -132,14 +126,13 @@
     <!-- Urgent Overlay - erscheint bei dringenden Tasks -->
     <div id="urgentOverlay" class="urgent-overlay hidden">
         <div class="urgent-modal">
-            <div class="urgent-icon"><i data-lucide="alert-triangle"></i></div>
+            <div class="urgent-icon">⚠️</div>
             <h2>DRINGENDE AUFGABE!</h2>
             <p id="urgentTaskText"></p>
             <div id="urgentAiBox" class="hidden" style="margin-bottom: 1rem;"></div>
             <div id="urgentTaskDetails" class="urgent-details-list"></div>
             <div class="urgent-buttons" style="flex-direction: column; gap: 10px;">
-                <button id="urgentDoneBtn" class="btn-urgent-done" style="width: 100%;"><i data-lucide="check"></i>
-                    Erledigt</button>
+                <button id="urgentDoneBtn" class="btn-urgent-done" style="width: 100%;">✓ Erledigt</button>
                 <div style="display: flex; gap: 10px; width: 100%;">
                     <select id="urgentSnoozeSelect"
                         style="padding: 10px; border-radius: 8px; border: 1px solid var(--border-glass); background: var(--bg-glass); color: var(--text-primary);">
@@ -150,8 +143,7 @@
                         <option value="60">1 Std</option>
                         <option value="120">2 Std</option>
                     </select>
-                    <button id="urgentLaterBtn" class="btn-urgent-later" style="flex: 1;"><i data-lucide="clock"></i>
-                        Später erinnern</button>
+                    <button id="urgentLaterBtn" class="btn-urgent-later" style="flex: 1;">⏰ Später erinnern</button>
                 </div>
             </div>
         </div>
@@ -162,8 +154,7 @@
         <div class="urgent-modal" style="border-color: var(--secondary);">
             <div class="urgent-icon"
                 style="background: var(--secondary); border-radius: 50%; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem;">
-                <i data-lucide="users"></i>
-            </div>
+                👥</div>
             <h2 style="color: var(--secondary);">NEUER TERMIN</h2>
             <p id="teamNotificationText" style="font-size: 1.4rem;"></p>
             <div id="teamNotificationDetails" class="urgent-details-list"
@@ -181,7 +172,7 @@
         <!-- Dashboard Header -->
         <div class="drive-dashboard-header">
             <div class="drive-header-left">
-                <div class="drive-logo-small"><i data-lucide="car"></i> Fahr-Modus</div>
+                <div class="drive-logo-small">⚡ Fahr-Modus</div>
             </div>
 
             <!-- CLOCK & WEATHER -->
@@ -189,7 +180,7 @@
                 <div class="drive-clock" id="driveClock">--:--</div>
                 <div class="drive-date" id="driveDate">Laden...</div>
                 <div class="drive-weather" id="driveWeather">
-                    <i data-lucide="sun" class="weather-icon"></i>
+                    <span class="weather-icon">☀️</span>
                     <span class="weather-temp" id="weatherTemp">--°</span>
                 </div>
             </div>
@@ -206,7 +197,7 @@
         <div class="drive-dashboard-grid">
             <!-- GROK AI SECTION -->
             <div class="drive-card grok-card">
-                <div class="card-label"><i data-lucide="bot"></i> Grok Assistant</div>
+                <div class="card-label">🤖 Grok Assistant</div>
                 <div id="driveGrokSummary" class="grok-summary">
                     Lade Tages-Briefing...
                 </div>
@@ -214,24 +205,24 @@
 
             <!-- NEXT STOP / NAVIGATION -->
             <div class="drive-card nav-card">
-                <div class="card-label"><i data-lucide="map-pin"></i> Nächstes Ziel</div>
+                <div class="card-label">📍 Nächstes Ziel</div>
                 <h1 id="driveTaskTitle" class="next-dest-title">Laden...</h1>
                 <div class="next-dest-meta">
                     <span id="driveTaskTime">--:--</span> | <span id="driveTaskLocation">Adresse...</span>
                 </div>
                 <div class="drive-actions-row">
                     <button id="startNavBtn" class="btn-drive-primary big">
-                        <i data-lucide="navigation"></i> Navigation starten
+                        🗺️ Navigation starten
                     </button>
                     <button id="dayRouteBtn" class="btn-drive-secondary">
-                        <i data-lucide="route"></i> Tages-Route
+                        🌐 Tages-Route
                     </button>
                 </div>
             </div>
 
             <!-- TIMELINE -->
             <div class="drive-card timeline-card">
-                <div class="card-label"><i data-lucide="calendar"></i> Dein Tag</div>
+                <div class="card-label">📅 Dein Tag</div>
                 <div id="driveTimelineList" class="drive-timeline">
                     <!-- Tasks inserted here -->
                 </div>
@@ -239,7 +230,7 @@
 
             <!-- ROUTE PLANNING -->
             <div class="drive-card route-card">
-                <div class="card-label"><i data-lucide="map"></i> Tagesroute</div>
+                <div class="card-label">🗺️ Tagesroute</div>
                 <div id="driveRouteInfo" class="route-info">
                     <!-- Route details inserted here -->
                 </div>
@@ -265,13 +256,10 @@
             <div id="nightstandNextAlarm" class="nightstand-next-alarm">Nächster Wecker: --:--</div>
 
             <div class="nightstand-controls">
-                <button id="toggleRotationBtn" class="btn-nightstand-rotate" title="Ausrichtung ändern"><i
-                        data-lucide="refresh-cw"></i>
-                    Drehen</button>
                 <div class="brightness-control">
-                    <i data-lucide="sun-dim" style="font-size: 1.2rem;"></i>
+                    <span>🔅</span>
                     <input type="range" id="nightstandBrightness" min="10" max="100" value="50">
-                    <i data-lucide="sun" style="font-size: 1.2rem;"></i>
+                    <span>🔆</span>
                 </div>
                 <button id="exitNightstandBtn" class="btn-nightstand-exit">Beenden</button>
             </div>
@@ -283,7 +271,7 @@
     <div id="alarmSettingsModal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <h2><i data-lucide="clock"></i> Wecker einstellen</h2>
+                <h2>⏰ Wecker einstellen</h2>
                 <button class="modal-close-icon" id="closeAlarmSettingsBtn">✕</button>
             </div>
             <div class="modal-body">
@@ -297,11 +285,11 @@
                     </div>
                 </div>
                 <div class="form-group" style="margin-top: 1rem;">
-                    <label><i data-lucide="tag"></i> Titel (optional)</label>
+                    <label>📌 Titel (optional)</label>
                     <input type="text" id="alarmLabel" placeholder="z.B. Aufstehen, Termin..." class="settings-input">
                 </div>
                 <div class="form-group">
-                    <label><i data-lucide="repeat"></i> Wiederholung</label>
+                    <label>🔁 Wiederholung</label>
                     <div class="days-selector" id="alarmDays">
                         <span data-day="1">Mo</span>
                         <span data-day="2">Di</span>
@@ -322,7 +310,7 @@
     <!-- Active Alarm Overlay -->
     <div id="activeAlarmOverlay" class="urgent-overlay hidden" style="z-index: 11000;">
         <div class="urgent-modal alarm-trigger-modal">
-            <div class="alarm-ring-icon"><i data-lucide="bell"></i></div>
+            <div class="alarm-ring-icon">🔔</div>
             <div class="digital-time-large" id="activeAlarmTime">00:00</div>
             <h2 id="activeAlarmLabel">WECKER!</h2>
             <div class="urgent-buttons" style="flex-direction: column; gap: 15px; width: 100%;">
@@ -337,26 +325,17 @@
     <div id="expenseModal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
-                <h2><i data-lucide="camera"></i> Beleg erfassen</h2>
+                <h2>📸 Beleg erfassen</h2>
                 <button class="modal-close-icon" id="closeExpenseModalBtn">✕</button>
             </div>
             <div class="modal-body">
                 <div class="receipt-scanner-box" id="receiptScannerBox">
                     <div class="scanner-placeholder">
-                        <i data-lucide="camera" style="font-size: 3rem; margin-bottom: 10px;"></i>
-                        <p>Beleg erfassen</p>
-                        <div
-                            style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap; justify-content: center;">
-                            <button class="btn-primary" onclick="openExpenseCamera()"><i data-lucide="camera"></i>
-                                Kamera</button>
-                            <button class="btn-secondary" onclick="openExpenseFiles()"><i data-lucide="file"></i>
-                                Datei</button>
-                            <button class="btn-link-small" onclick="openManualExpense()"
-                                style="width: 100%; margin-top: 5px;"><i data-lucide="edit-3"></i> Manuelle
-                                Eingabe</button>
-                        </div>
-                        <input type="file" id="expenseImageInput" accept="image/*" capture="environment" class="hidden">
-                        <input type="file" id="expenseFileInput" accept="image/*" class="hidden">
+                        <span style="font-size: 3rem;">📷</span>
+                        <p>Quittung fotografieren oder hochladen</p>
+                        <input type="file" id="expenseImageInput" accept="image/*" capture="environment" hidden>
+                        <button class="btn-primary"
+                            onclick="document.getElementById('expenseImageInput').click()">Kamera öffnen</button>
                     </div>
                     <img id="receiptPreview" class="receipt-preview hidden" src="">
                     <div id="scannerOverlay" class="scanner-overlay hidden">
@@ -411,50 +390,24 @@
                         <span class="team-badge hidden" id="teamBadge">TEAM: <span id="teamCodeName"></span></span>
                     </div>
                 </div>
-
-                <!-- Main Clock - Fixed at Top -->
-                <div id="mainClock" class="header-clock"
-                    style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin: 0 15px; letter-spacing: 1px;">
-                    --:--
+                <div class="header-clock" id="mainClock">--:--
                 </div>
-
-                <div id="syncIndicator" class="sync-indicator hidden"></div>
-
-                <button class="btn-sync-mini" id="hamburgerBtn" title="Menü" style="font-size: 1.5rem;">
-                    <i data-lucide="menu"></i>
-                </button>
-            </div>
-
-            <!-- Navigation Bar - Can be fixed top or bottom -->
-            <div class="header-actions" id="mainNavBar">
-                <button class="btn-sync-mini" id="calendarBtn" title="Kalender öffnen">
-                    <i data-lucide="calendar"></i>
-                    <span class="icon-label">Kalender</span>
-                </button>
-                <button class="btn-sync-mini" id="expenseBtn" title="Kostenkontrolle" style="color: #10b981;">
-                    <i data-lucide="dollar-sign"></i>
-                    <span class="icon-label">Kosten</span>
-                </button>
-                <button class="btn-sync-mini" id="addExpenseBtnHeader" title="Beleg scannen" style="color: #10b981;">
-                    <i data-lucide="camera"></i>
-                    <span class="icon-label">Beleg</span>
-                </button>
-                <button class="btn-sync-mini" id="sideNightstandBtnHeader" title="Nachtmodus">
-                    <i data-lucide="moon"></i>
-                    <span class="icon-label">Nacht</span>
-                </button>
-                <button class="btn-sync-mini" id="alarmBtn" title="Wecker / Alarme" style="color: #fbbf24;">
-                    <i data-lucide="bell"></i>
-                    <span class="icon-label">Wecker</span>
-                </button>
-                <button class="btn-sync-mini" id="manualDriveBtn" title="Fahrt-Modus starten"
-                    style="color: var(--secondary);">
-                    <i data-lucide="car"></i>
-                    <span class="icon-label">Fahrt</span>
-                </button>
-                <div id="voiceStatus" class="voice-status">
-                    <span class="voice-pulse"></span>
-                    <span class="voice-label">...</span>
+                <div class="header-actions">
+                    <button class="btn-sync-mini" id="calendarBtn" title="Kalender öffnen"
+                        style="font-size: 1.2rem;">📅</button>
+                    <button class="btn-sync-mini" id="headerTodoBtn" title="To-Do Liste öffnen"
+                        style="font-size: 1.2rem;">📝</button>
+                    <button class="btn-sync-mini" id="alarmBtn" title="Wecker / Alarme"
+                        style="font-size: 1.2rem; color: #fbbf24;">⏰</button>
+                    <button class="btn-sync-mini" id="manualDriveBtn" title="Fahrt-Modus starten"
+                        style="font-size: 1.2rem; color: var(--secondary);">🚗</button>
+                    <div id="voiceStatus" class="voice-status">
+                        <span class="voice-pulse"></span>
+                        <span class="voice-label">Höre zu...</span>
+                    </div>
+                    <button class="btn-sync-mini" id="hamburgerBtn" title="Menü" style="font-size: 1.5rem;">☰</button>
+                    <!-- Small indicator for pending syncs if any -->
+                    <span id="syncIndicator" class="sync-indicator hidden"></span>
                 </div>
             </div>
 
@@ -466,38 +419,22 @@
                         <button id="closeSideMenu" class="btn-close-small">✕</button>
                     </div>
                     <div class="side-menu-items">
-                        <div class="menu-group"
-                            style="padding-bottom: 0.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-glass);">
-                            <button class="menu-item" id="sideProfileBtn" style="color: var(--primary-light);"><i
-                                    data-lucide="user-check"></i> Mein KI-Profil (Details)</button>
-                            <button class="menu-item" id="sideDiscoveryBtn" style="color: var(--secondary);"><i
-                                    data-lucide="sparkles"></i> KI-Berater Discovery</button>
-                        </div>
                         <div class="menu-group">
                             <label>Navigation & Planung</label>
-                            <button class="menu-item" id="sideCalendarBtn"><i data-lucide="calendar"></i> Kalender
-                                öffnen</button>
-                            <button class="menu-item" id="sideTodoBtn"><i data-lucide="file-text"></i> To-Do
-                                Liste</button>
-                            <button class="menu-item" id="sideExpenseBtn"><i data-lucide="dollar-sign"></i>
-                                Kostenkontrolle / Ausgaben</button>
+                            <button class="menu-item" id="sideCalendarBtn">📅 Kalender öffnen</button>
+                            <button class="menu-item" id="sideTodoBtn">📝 To-Do Liste</button>
+                            <button class="menu-item" id="sideExpenseBtn">💰 Kostenkontrolle / Ausgaben</button>
                             <button class="menu-item" id="sidePaypalBtn">🅿️ Mit PayPal bezahlen</button>
                             <button class="menu-item" id="sideCommBtn">📱 Kommunikation & Kontakt</button>
-                            <button class="menu-item" id="sideDriveBtn"><i data-lucide="car"></i> Fahrt-Modus
-                                (Dashboard)</button>
-                            <button class="menu-item" id="sideAlarmBtn"><i data-lucide="bell"></i> Wecker /
-                                Alarme</button>
-                            <button class="menu-item" id="sideNightstandBtn"><i data-lucide="moon"></i> Nachtmodus
-                                (Uhr)</button>
+                            <button class="menu-item" id="sideDriveBtn">🚗 Fahrt-Modus (Dashboard)</button>
+                            <button class="menu-item" id="sideAlarmBtn">⏰ Wecker / Alarme</button>
+                            <button class="menu-item" id="sideNightstandBtn">🌙 Nachtmodus (Uhr)</button>
                         </div>
                         <div class="menu-group">
                             <label>System</label>
-                            <button class="menu-item" id="sideSettingsBtn"><i data-lucide="settings"></i>
-                                Einstellungen</button>
-                            <button class="menu-item" id="sideSyncBtn"><i data-lucide="refresh-cw"></i> Daten
-                                synchronisieren</button>
-                            <button class="menu-item logout" id="sideLogoutBtn"><i data-lucide="log-out"></i>
-                                Abmelden</button>
+                            <button class="menu-item" id="sideSettingsBtn">⚙️ Einstellungen</button>
+                            <button class="menu-item" id="sideSyncBtn">🔄 Daten synchronisieren</button>
+                            <button class="menu-item logout" id="sideLogoutBtn">🚪 Abmelden</button>
                         </div>
                     </div>
                     <div class="side-menu-footer">
@@ -507,7 +444,7 @@
                 </div>
             </div>
             <div class="logo">
-                <i data-lucide="zap" class="logo-icon"></i>
+                <span class="logo-icon">⚡</span>
                 <h1>TaskForce</h1>
             </div>
             <p class="tagline">Ich lasse nicht locker!</p>
@@ -515,14 +452,13 @@
             <!-- Embedded Quick Add Section -->
             <div class="header-search-wrapper">
                 <section class="quick-add-section">
-                    <div class="input-container flowing-border-anim">
+                    <div class="input-container">
                         <textarea id="keywordInput" placeholder="Stichwort, Nummer oder E-Mail eingeben..."
                             autocomplete="off" rows="1"></textarea>
                         <div class="ai-selector-container">
                             <button id="grokManualBtn" class="btn-grok-manual"
-                                title="Ausgewählte KI (Original) öffnen"><i data-lucide="bot"></i></button>
-                            <button id="aiSelectorArrow" class="ai-selector-arrow" title="KI wählen"><i
-                                    data-lucide="chevron-down"></i></button>
+                                title="Ausgewählte KI (Original) öffnen">🤖</button>
+                            <button id="aiSelectorArrow" class="ai-selector-arrow" title="KI wählen">▾</button>
                             <div id="aiSelectionMenu" class="ai-selection-menu hidden">
                                 <div class="ai-option" data-provider="grok" title="Grok (xAI)">🤖 <span>Grok</span>
                                 </div>
@@ -534,9 +470,8 @@
                                 </div>
                             </div>
                         </div>
-                        <button id="voiceBtn" class="btn-voice" title="Spracheingabe"><i data-lucide="mic"></i></button>
-                        <button id="addTodoBtn" class="btn-todo" title="Schnell-Notiz / To-do"><i
-                                data-lucide="file-text"></i></button>
+                        <button id="voiceBtn" class="btn-voice" title="Spracheingabe">🎤</button>
+                        <button id="addTodoBtn" class="btn-todo" title="Schnell-Notiz / To-do">📝</button>
                         <button id="addTaskBtn" class="btn-add" title="Aufgabe mit Details">
                             <span>+</span>
                         </button>
@@ -544,65 +479,13 @@
                 </section>
                 <!-- Mobile Quick Comm Bar - Permanently Visible -->
                 <div class="mobile-comm-bar" id="mobileCommBar">
-                    <button id="quickCallBtn" class="btn-comm-quick" title="Anrufen"><i
-                            data-lucide="phone"></i></button>
-                    <button id="quickWaBtn" class="btn-comm-quick" title="WhatsApp"><i
-                            data-lucide="message-square"></i></button>
-                    <button id="quickMailBtn" class="btn-comm-quick" title="E-Mail"><i data-lucide="mail"></i></button>
-                    <button id="mobileExpenseBtn" class="btn-comm-quick" title="Kostenkontrolle"><i
-                            data-lucide="dollar-sign"></i></button>
-                    <button id="mobileAddExpenseBtn" class="btn-comm-quick" title="Beleg scannen"><i
-                            data-lucide="camera"></i></button>
+                    <button id="quickCallBtn" class="btn-comm-quick" title="Anrufen">📞</button>
+                    <button id="quickWaBtn" class="btn-comm-quick" title="WhatsApp">💬</button>
+                    <button id="quickMailBtn" class="btn-comm-quick" title="E-Mail">✉️</button>
 
                 </div>
             </div>
         </header>
-
-        <!-- AI Profile Setup Modal -->
-        <div id="aiProfileModal" class="modal hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2><i data-lucide="user-plus"></i> Dein KI-Berater Profil</h2>
-                    <button class="modal-close-icon" id="closeProfileBtn">✕</button>
-                </div>
-                <div class="modal-body">
-                    <p
-                        style="color: var(--text-secondary); margin-bottom: 1rem; text-align: center; font-size: 0.9rem;">
-                        Erzähl mir mehr über dich, damit ich dich im Privat- und Geschäftsleben optimal unterstützen
-                        kann!
-                    </p>
-                    <div class="form-group">
-                        <label><i data-lucide="user"></i> Wie heißt du?</label>
-                        <input type="text" id="aiName" class="settings-input" placeholder="Dein Name">
-                    </div>
-                    <div class="form-group">
-                        <label><i data-lucide="venus-mars"></i> Geschlecht</label>
-                        <select id="aiGender" class="settings-select">
-                            <option value="">Bitte wählen...</option>
-                            <option value="m">Männlich</option>
-                            <option value="f">Weiblich</option>
-                            <option value="d">Divers</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label><i data-lucide="calendar"></i> Geburtsdatum</label>
-                        <input type="date" id="aiBirthdate" class="settings-input">
-                    </div>
-                    <div class="form-group">
-                        <label><i data-lucide="briefcase"></i> Beruf / Geschäftlich</label>
-                        <input type="text" id="aiJob" class="settings-input" placeholder="Was arbeitest du?">
-                    </div>
-                    <div class="form-group">
-                        <label><i data-lucide="heart"></i> Hobbies / Privat</label>
-                        <textarea id="aiHobbies" class="settings-input" rows="2"
-                            placeholder="Was machst du in deiner Freizeit gerne?"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button id="saveProfileBtn" class="btn-primary" style="width: 100%;">Bestätigen & Speichern</button>
-                </div>
-            </div>
-        </div>
 
         <!-- Communication Modal -->
         <div id="commModal" class="modal hidden">
@@ -613,25 +496,27 @@
                 </div>
                 <div class="modal-body comm-grid" style="display: flex; flex-direction: column; gap: 1rem;">
                     <div class="form-group" style="width: 100%;">
-                        <label <i data-lucide="phone"></i> Nummer oder <i data-lucide="mail"></i> E-Mail</label>
+                        <label
+                            style="text-align: left; display: block; margin-bottom: 0.5rem; color: var(--text-muted);">📞
+                            Nummer oder 📧 E-Mail</label>
                         <div style="display: flex; gap: 8px;">
                             <input type="text" id="commInput" class="settings-input" placeholder="Kontakt eingeben..."
                                 style="font-size: 1.2rem; padding: 1rem; flex: 1;">
                             <button id="commContactBtn" class="btn-primary" style="padding: 0 1rem;"
-                                title="Kontakt auswählen (Einzeln)"><i data-lucide="contact"></i></button>
+                                title="Kontakt auswählen (Einzeln)">📇</button>
                         </div>
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%;">
                         <button class="comm-action-card" id="btnCall">
-                            <i data-lucide="phone" class="comm-icon"></i>
+                            <span class="comm-icon">📞</span>
                             <label>Anrufen</label>
                         </button>
                         <button class="comm-action-card" id="btnWhatsApp">
-                            <i data-lucide="message-square" class="comm-icon"></i>
+                            <span class="comm-icon">💬</span>
                             <label>WhatsApp</label>
                         </button>
                         <button class="comm-action-card" id="btnEmail">
-                            <i data-lucide="mail" class="comm-icon"></i>
+                            <span class="comm-icon">✉️</span>
                             <label>E-Mail</label>
                         </button>
                     </div>
@@ -643,7 +528,7 @@
                             <h3 style="margin:0; font-size: 1rem;">👥 Meine Kontakte</h3>
                             <button id="syncContactsBtn" class="btn-secondary"
                                 style="font-size: 0.8rem; padding: 4px 10px;">
-                                <i data-lucide="refresh-cw"></i> Importieren
+                                🔄 Importieren
                             </button>
                         </div>
                         <div id="syncedContactsList" class="synced-contacts-list">
@@ -687,7 +572,7 @@
         <div id="questionsModal" class="modal hidden">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2><i data-lucide="edit-3"></i> Details zur Aufgabe</h2>
+                    <h2>📝 Details zur Aufgabe</h2>
                     <span id="taskKeywordDisplay" class="task-keyword"></span>
                 </div>
                 <div class="modal-body">
@@ -695,8 +580,7 @@
                         <!-- Dynamische Fragen werden hier eingefügt -->
                     </div>
                     <div class="form-group task-file-upload">
-                        <button type="button" id="toggleUploadBtn" class="btn-link-small"><i
-                                data-lucide="paperclip"></i> Anhang hinzufügen?</button>
+                        <button type="button" id="toggleUploadBtn" class="btn-link-small">📎 Anhang hinzufügen?</button>
                         <div id="uploadSection" class="file-input-wrapper hidden">
                             <span id="taskFileName" class="file-name">Keine Datei</span>
                             <div class="file-actions">
@@ -709,7 +593,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button id="cancelTaskBtn" class="btn-secondary">Abbrechen</button>
+                    <button id="skipQuestionsBtn" class="btn-secondary">Überspringen</button>
                     <button id="saveTaskBtn" class="btn-primary">Aufgabe speichern</button>
                 </div>
             </div>
@@ -718,7 +602,7 @@
         <!-- Quick Todo Section -->
         <section id="quickTodoSection" class="quick-todo-section hidden">
             <div class="todo-header">
-                <h3><i data-lucide="file-text" class="header-icon"></i> Meine Schnell-Notizen</h3>
+                <h3><span class="header-icon">📝</span> Meine Schnell-Notizen</h3>
                 <button id="clearDoneTodosBtn" class="btn-link-small">Erledigte löschen</button>
             </div>
             <div id="todoList" class="todo-list">
@@ -729,7 +613,7 @@
         <!-- Alarm Section (Chronological) -->
         <section id="alarmSection" class="alarm-section hidden">
             <div class="section-header">
-                <h3><i data-lucide="bell" class="header-icon"></i> Aktive Alarme</h3>
+                <h3><span class="header-icon">⏰</span> Aktive Alarme</h3>
                 <button id="showAlarmFormBtn" class="btn-link-small">+ Neu</button>
             </div>
             <div id="alarmList" class="alarm-list">
@@ -740,7 +624,7 @@
         <!-- Expense Section -->
         <section id="expenseSection" class="expense-section hidden">
             <div class="section-header">
-                <h3><i data-lucide="dollar-sign" class="header-icon"></i> Kostenkontrolle</h3>
+                <h3><span class="header-icon">💰</span> Kostenkontrolle</h3>
                 <div style="display:flex; gap:10px; align-items:center;">
                     <input type="text" id="expenseSearch" placeholder="Suchen..." class="settings-input"
                         style="margin-top:0; padding: 0.4rem 0.8rem; font-size: 0.8rem; width: 120px;">
@@ -808,11 +692,10 @@
         <!-- Filter Tabs -->
         <section class="filter-tabs">
             <button class="tab-btn active" data-filter="all">Alle</button>
-            <button class="tab-btn" data-filter="urgent"><i data-lucide="flame" style="color: var(--urgent);"></i>
-                Dringend</button>
-            <button class="tab-btn" data-filter="normal"><i data-lucide="clipboard-list"></i> Normal</button>
-            <button class="tab-btn" data-filter="done"><i data-lucide="check-circle"></i> Erledigt</button>
-            <button class="tab-btn" data-filter="archived"><i data-lucide="archive"></i> Archiv</button>
+            <button class="tab-btn" data-filter="urgent">🔥 Dringend</button>
+            <button class="tab-btn" data-filter="normal">📋 Normal</button>
+            <button class="tab-btn" data-filter="done">✓ Erledigt</button>
+            <button class="tab-btn" data-filter="archived">📦 Archiv</button>
         </section>
 
         <!-- Tasks List -->
@@ -820,7 +703,7 @@
             <div id="tasksList" class="tasks-list">
                 <!-- Tasks werden hier dynamisch eingefügt -->
                 <div class="empty-state" id="emptyState">
-                    <div class="empty-icon"><i data-lucide="clipboard-list"></i></div>
+                    <div class="empty-icon">📋</div>
                     <h3>Keine Aufgaben</h3>
                     <p>Gib ein Stichwort ein, um loszulegen!</p>
                 </div>
@@ -836,15 +719,11 @@
                         <span id="detailTaskStatus" class="status-badge"></span>
                     </div>
                     <div class="toolbar-actions">
-                        <button id="toggleDoneBtn" class="icon-btn success" title="Erledigt"><i
-                                data-lucide="check"></i></button>
-                        <button id="editTaskBtn" class="icon-btn" title="Bearbeiten"><i
-                                data-lucide="edit-2"></i></button>
-                        <button id="archiveTaskBtn" class="icon-btn" title="Archivieren"><i
-                                data-lucide="archive"></i></button>
-                        <button id="deleteTaskBtn" class="icon-btn danger" title="Löschen"><i
-                                data-lucide="trash-2"></i></button>
-                        <button class="modal-close-icon" id="closeDetailModal"><i data-lucide="x"></i></button>
+                        <button id="toggleDoneBtn" class="icon-btn success" title="Erledigt">✓</button>
+                        <button id="editTaskBtn" class="icon-btn" title="Bearbeiten">✏️</button>
+                        <button id="archiveTaskBtn" class="icon-btn" title="Archivieren">📦</button>
+                        <button id="deleteTaskBtn" class="icon-btn danger" title="Löschen">🗑️</button>
+                        <button class="modal-close-icon" id="closeDetailModal">✕</button>
                     </div>
                 </div>
 
@@ -856,11 +735,11 @@
                         <div class="priority-toggle mini">
                             <div class="priority-option normal" id="detailNormalBtn"
                                 onclick="updateTaskPriority('normal')">
-                                <i data-lucide="clipboard-list"></i>
+                                📋
                             </div>
                             <div class="priority-option urgent" id="detailUrgentBtn"
                                 onclick="updateTaskPriority('urgent')">
-                                <i data-lucide="flame"></i>
+                                🔥
                             </div>
                         </div>
                     </div>
@@ -875,10 +754,10 @@
 
         <!-- App Install Banner (in-app) -->
         <div id="installBanner" class="install-banner hidden">
-            <i data-lucide="download"></i>
+            <span>📲</span>
             <span>TaskForce als App installieren?</span>
             <button id="installAppBtn" class="btn-small">Installieren</button>
-            <button id="closeInstallBanner" class="btn-close-small"><i data-lucide="x"></i></button>
+            <button id="closeInstallBanner" class="btn-close-small">✕</button>
         </div>
     </div>
 
@@ -891,7 +770,8 @@
     </audio>
 
     <!-- Firebase SDK -->
-
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 
 
 
@@ -987,87 +867,12 @@
                             <option value="chatgpt">ChatGPT (OpenAI)</option>
                             <option value="gemini">Gemini (Google)</option>
                         </select>
-
-                        <!-- NEW: OpenAI Key Input -->
-                        <div id="openaiKeyGroup" class="hidden"
-                            style="margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;">
-                            <label style="font-size: 0.8rem;">🔑 OpenAI API Key (für Hintergrund-Suche)</label>
-                            <input type="password" id="openaiApiKeyInput" placeholder="sk-..." class="settings-input"
-                                style="font-size: 0.8rem;">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <small style="color: var(--text-muted); font-size: 0.7rem;">Benötigt für automatische
-                                    Hintergrund-Recherche.</small>
-                                <a href="https://platform.openai.com/api-keys" target="_blank"
-                                    style="color: var(--secondary); font-size: 0.7rem; text-decoration: underline;">Key
-                                    hier erstellen ↗</a>
-                            </div>
-                        </div>
-
                         <small style="color: var(--text-muted); font-size: 0.7rem; display: block; margin-top: 0.5rem;">
                             Wähle, welche KI für Recherchen und Hilfe genutzt werden soll.
                             Der 🤖-Button öffnet die ausgewählte KI.
                         </small>
                         <button id="testAiBtn" class="btn-link-small" style="margin-top: 0.5rem;">🚀 Ausgewählte KI
                             öffnen</button>
-                    </div>
-                </div>
-
-                <div class="form-group"
-                    style="border-top: 1px solid var(--border-glass); padding-top: 1.5rem; margin-top: 1.5rem;">
-                    <label>📍 Navigation & Layout</label>
-                    <div class="setting-toggle-row">
-                        <span>Navigation unten fixieren</span>
-                        <label class="switch">
-                            <input type="checkbox" id="navBottomToggle">
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="form-group"
-                    style="border-top: 1px solid var(--border-glass); padding-top: 1.5rem; margin-top: 1.5rem;">
-                    <label>🔝 Kopfzeilen-Symbole (Anzeigen/Ausblenden)</label>
-                    <div class="setting-toggle-row">
-                        <span>📅 Kalender</span>
-                        <label class="switch">
-                            <input type="checkbox" id="headerIconCalendar">
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                    <div class="setting-toggle-row">
-                        <span>💰 Kosten-Liste</span>
-                        <label class="switch">
-                            <input type="checkbox" id="headerIconExpense">
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                    <div class="setting-toggle-row">
-                        <span>📸 Beleg scannen</span>
-                        <label class="switch">
-                            <input type="checkbox" id="headerIconScan">
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                    <div class="setting-toggle-row">
-                        <span>⏰ Wecker / Alarm</span>
-                        <label class="switch">
-                            <input type="checkbox" id="headerIconAlarm">
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                    <div class="setting-toggle-row">
-                        <span>🚗 Fahrt-Modus</span>
-                        <label class="switch">
-                            <input type="checkbox" id="headerIconDrive">
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                    <div class="setting-toggle-row">
-                        <span>🌙 Nachtmodus</span>
-                        <label class="switch">
-                            <input type="checkbox" id="headerIconNight">
-                            <span class="slider round"></span>
-                        </label>
                     </div>
                 </div>
 
@@ -1328,44 +1133,6 @@
                     <button id="cancelAppointmentBtn" class="btn-secondary">Abbrechen</button>
                     <button id="saveAppointmentBtn" class="btn-primary">Speichern</button>
                 </div>
-
-            </div>
-        </div>
-
-        <!-- AI Research Result Modal -->
-        <div id="aiResearchResultModal" class="modal hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>🔍 Recherche-Ergebnis</h2>
-                    <button class="modal-close-icon" id="closeAiResearchResultBtn">✕</button>
-                </div>
-                <div class="modal-body">
-                    <div class="ai-result-box" id="aiResultBox">
-                        <div id="aiResultHeader"
-                            style="font-weight: 700; color: var(--secondary); margin-bottom: 0.5rem;">Gefundene
-                            Information:</div>
-                        <div id="aiResultContent"
-                            style="padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid var(--border-glass); margin-bottom: 1.5rem; font-size: 1.1rem;">
-                            -</div>
-                    </div>
-
-                    <div class="appointment-selector">
-                        <label style="display: block; margin-bottom: 1rem; opacity: 0.8;">In welchen Termin soll ich das
-                            speichern?</label>
-                        <div id="researchAppointmentList"
-                            style="display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto; padding-right: 5px;">
-                            <!-- Appointments will be listed here -->
-                            <div class="loading-spinner" style="text-align:center; padding: 2rem;">Warten auf Daten...
-                            </div>
-                        </div>
-                        <button id="saveInNewAppointmentBtn" class="btn-secondary"
-                            style="width: 100%; margin-top: 1rem; border-style: dashed;">➕ In neuen Termin
-                            eintragen</button>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button id="cancelAiResearchResultBtn" class="btn-secondary" style="width: 100%;">Abbrechen</button>
-                </div>
             </div>
         </div>
         <!-- Firebase SDKs -->
@@ -1373,93 +1140,7 @@
         <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
         <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
-        <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
         <script src="app.js"></script>
-        <!-- AI Research Result Modal -->
-        <div id="aiResearchResultModal" class="modal hidden">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>🔎 Gefundene Informationen</h2>
-                    <button class="modal-close-icon" id="closeAiResearchResultBtn">✕</button>
-                </div>
-                <div class="modal-body">
-                    <div class="ai-result-box"
-                        style="background: rgba(var(--primary-rgb), 0.1); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                        <label
-                            style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 5px;">Gefunden:</label>
-                        <div id="aiResultContent" style="font-size: 1.1rem; font-weight: bold; word-break: break-word;">
-                            --</div>
-                    </div>
-
-                    <h3 style="font-size: 1rem; margin-bottom: 1rem;">Wo soll das gespeichert werden?</h3>
-
-                    <button id="saveInNewAppointmentBtn" class="btn-primary"
-                        style="width: 100%; margin-bottom: 1rem; padding: 12px; font-weight: bold;">
-                        ✨ In NEUEN Termin eintragen
-                    </button>
-
-                    <div style="text-align: center; margin: 10px 0; font-size: 0.8rem; opacity: 0.7;">— ODER WÄHLE EINEN
-                        TERMIN —</div>
-
-                    <div id="researchAppointmentList" class="research-appointment-list"
-                        style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
-                        <!-- Appointments will be listed here -->
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button id="cancelAiResearchResultBtn" class="btn-secondary">Abbrechen</button>
-                </div>
-            </div>
-        </div>
-        <!-- AI Onboarding/Profile Modal -->
-        <div id="onboardingModal" class="modal hidden" style="z-index: 20000; background: rgba(0,0,0,0.95);">
-            <div class="modal-content" style="max-width: 500px; border: 1px solid var(--secondary);">
-                <div class="modal-header" style="justify-content: center; flex-direction: column; text-align: center;">
-                    <div style="font-size: 3rem; margin-bottom: 10px;">🤖</div>
-                    <h2>Dein AI-Organizer</h2>
-                    <p style="opacity: 0.8; font-size: 0.9rem;">Ich möchte dich den ganzen Tag begleiten. <br>Erzähl mir
-                        etwas über dich!</p>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label>Wie darf ich dich nennen?</label>
-                        <input type="text" id="profileName" class="settings-input" placeholder="Dein Name">
-                    </div>
-                    <div class="form-group">
-                        <label>Dein Alter (für passende Ansprache)</label>
-                        <input type="number" id="profileAge" class="settings-input" placeholder="z.B. 30">
-                    </div>
-                    <div class="form-group">
-                        <label>Beruf / Tätigkeit</label>
-                        <input type="text" id="profileJob" class="settings-input"
-                            placeholder="z.B. Entwickler, Student, Manager...">
-                    </div>
-                    <div class="form-group">
-                        <label>Deine Hobbys & Interessen (für Freizeit-Tipps)</label>
-                        <textarea id="profileHobbies" class="settings-input" rows="2"
-                            placeholder="z.B. Laufen, Lesen, Gaming, Kochen..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Was ist dir heute wichtig?</label>
-                        <select id="profileFocus" class="settings-select">
-                            <option value="productivity">🚀 Maximale Produktivität</option>
-                            <option value="balance">⚖️ Work-Life-Balance</option>
-                            <option value="health">💪 Gesundheit & Sport</option>
-                            <option value="learning">🧠 Lernen & Wachstum</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button id="saveProfileBtn" class="btn-primary"
-                        style="width: 100%; padding: 15px; font-size: 1.1rem;">
-                        ✨ Profil erstellen & Starten
-                    </button>
-                </div>
-            </div>
-        </div>
-        <script>
-            lucide.createIcons();
-        </script>
 </body>
 
 </html>
