@@ -2,55 +2,83 @@
    ULTRA COMPACT MODE - MAXIMUM SPACE
    ========================================= */
 
-/* Ultra Compact Header - ganz oben fixiert */
+/* Ultra Compact Header - Permanent Minimal Mode */
 .header {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
-    padding: 0.3rem 0 !important;
+    padding: 0 !important;
     margin: 0 !important;
     z-index: 1003 !important;
-    background: rgba(15, 15, 26, 0.95) !important;
-    backdrop-filter: blur(20px) !important;
+    background: rgba(15, 15, 26, 0.98) !important;
+    backdrop-filter: blur(10px) !important;
+    height: auto !important;
+    min-height: 50px !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    padding-bottom: 5px !important;
 }
 
-.header .logo {
-    margin-bottom: 0.2rem !important;
+/* Hide Branding & User Info in Minimal/Fix Mode */
+.header .logo,
+.header .tagline,
+.header .header-top .user-info {
+    display: none !important;
 }
 
-.header .logo h1 {
-    font-size: 1.1rem !important;
+.header-top {
+    display: flex !important;
+    width: 100% !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 0 10px !important;
+    height: auto !important;
+    min-height: 30px !important;
 }
 
-.header .logo-icon {
-    font-size: 1.1rem !important;
-}
-
-.header .tagline {
-    font-size: 0.65rem !important;
-    margin: 0 !important;
-}
 
 /* Ultra Compact Input Container */
 .header-search-wrapper {
     padding: 0 0.5rem !important;
-    margin-top: 0.3rem !important;
+    margin-top: 5px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 8px !important;
+}
+
+.header-buttons-row {
+    display: flex !important;
+    width: 100% !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
 }
 
 .input-container {
-    padding: 0.25rem !important;
-    min-height: 40px !important;
+    padding: 0 !important;
+    min-height: auto !important;
     gap: 0.3rem !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 #keywordInput {
     font-size: 0.9rem !important;
-    padding: 0.5rem !important;
-    min-height: 35px !important;
-    height: 35px !important;
+    padding: 0.4rem 2.5rem 0.4rem 0.8rem !important;
+    /* Extra padding for mic */
+    width: 100% !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px !important;
+    color: white !important;
+    margin: 0 !important;
 }
 
 /* Ultra Compact Buttons */
@@ -91,35 +119,108 @@
     min-height: 18px !important;
 }
 
-/* Mobile Comm Bar - Ultra Compact */
+/* Mobile Comm Bar - Ultra Compact & Scrollable Text */
 .mobile-comm-bar {
-    padding: 0.3rem !important;
-    gap: 0.3rem !important;
-    margin-top: 0.3rem !important;
+    padding: 0.1rem 0 !important;
+    gap: 0.2rem !important;
+    margin-top: 0.2rem !important;
+    display: flex !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    width: 100% !important;
+    -webkit-overflow-scrolling: touch !important;
+    justify-content: flex-start !important;
+    scrollbar-width: none !important;
+    /* Firefox */
 }
 
+.mobile-comm-bar::-webkit-scrollbar {
+    display: none !important;
+    /* Chrome/Safari */
+}
+
+/* Updated Text-Only Buttons (No Border, Narrow) */
 .btn-comm-quick {
-    min-width: 30px !important;
-    padding: 0.15rem !important;
-    gap: 1px !important;
+    min-width: auto !important;
+    width: auto !important;
+    padding: 0.4rem 0.6rem !important;
+    /* Ganz schmal */
+    gap: 0 !important;
+    background: transparent !important;
+    /* Keine Hintergrund */
+    border: none !important;
+    /* Ohne Umrandung */
+    border-radius: 8px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: var(--text-secondary) !important;
+    /* Slightly muted text */
+}
+
+.btn-comm-quick.active,
+.btn-comm-quick:active {
+    color: var(--primary) !important;
 }
 
 .btn-comm-quick .lucide {
-    width: 1rem !important;
-    height: 1rem !important;
+    display: none !important;
+    /* Hide icon as per request */
+}
+
+/* Exception for Icon-Only Buttons (like Widget) */
+.btn-comm-quick.icon-only .lucide {
+    display: block !important;
+    width: 1.2rem !important;
+    height: 1.2rem !important;
+}
+
+.btn-comm-quick.icon-only {
+    padding: 0.4rem !important;
 }
 
 .btn-comm-quick .icon-label {
-    font-size: 0.55rem !important;
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    display: block !important;
+}
+
+/* Widen the keyword row since + button is gone */
+.keyword-row {
+    width: 100% !important;
+    padding: 0 0.2rem !important;
+    /* Reduced padding for more width */
+    max-width: none !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+#keywordInput {
+    width: 100% !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    font-size: 1.1rem !important;
+    padding: 12px 2.8rem 12px 10px !important;
+    /* Right padding for big mic */
+    text-align: left !important;
+    /* Left alignment per Step 95 and standard */
+}
+
+#voiceBtnHeader .lucide {
+    width: 1.8rem !important;
+    height: 1.8rem !important;
+    color: var(--primary) !important;
 }
 
 /* App Container - More space for content */
+/* Unified App Container Padding */
 .app-container {
-    padding-top: 200px !important;
-    /* Weiter erhöht damit Stats Bar sichtbar ist */
-    padding-bottom: calc(80px + env(safe-area-inset-bottom)) !important;
-    padding-left: 0.8rem !important;
-    padding-right: 0.8rem !important;
+    padding-top: 150px !important;
+    padding-bottom: calc(85px + env(safe-area-inset-bottom)) !important;
+    padding-left: 0.4rem !important;
+    padding-right: 0.4rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
 }
 
 /* Stats Bar - Ultra Compact & Schmaler */
@@ -134,12 +235,12 @@
 }
 
 .stat-number {
-    font-size: 1.1rem !important;
+    font-size: 1.2rem !important;
     line-height: 1.2 !important;
 }
 
 .stat-label {
-    font-size: 0.55rem !important;
+    font-size: 0.65rem !important;
     margin-top: 0.1rem !important;
     line-height: 1 !important;
 }
@@ -169,15 +270,16 @@
 }
 
 .task-title {
-    font-size: 0.95rem !important;
+    font-size: 1.05rem !important;
+    font-weight: 700 !important;
 }
 
 .task-preview {
-    font-size: 0.8rem !important;
+    font-size: 0.9rem !important;
 }
 
 .task-meta {
-    font-size: 0.75rem !important;
+    font-size: 0.85rem !important;
 }
 
 /* Sections - More compact */
@@ -242,7 +344,61 @@
 }
 
 .header-clock {
-    font-size: 0.75rem !important;
+    order: -1 !important;
+    /* Move to start */
+    margin-left: 0 !important;
+    margin-right: auto !important;
+    /* Push everything else right */
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 8px !important;
+    padding: 5px 0 !important;
+}
+
+.clock-time {
+    font-size: 1.5rem !important;
+    font-weight: bold !important;
+    color: white !important;
+    line-height: 1 !important;
+}
+
+.header-date {
+    font-size: 1rem !important;
+    color: var(--text-secondary) !important;
+    font-weight: 500 !important;
+    opacity: 0.9 !important;
+}
+
+/* Connection Dot Styling */
+#teamBadge {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 5px !important;
+    margin: 0 !important;
+    order: 0 !important;
+    /* Reset order */
+}
+
+#teamBadge.hidden {
+    display: none !important;
+}
+
+.connection-dot {
+    width: 8px;
+    height: 8px;
+    background-color: var(--success);
+    /* Green dot */
+    border-radius: 50%;
+    box-shadow: 0 0 5px var(--success);
+    display: block;
+}
+
+.team-text {
+    display: none !important;
+    /* Hide text as requested */
 }
 
 /* Quick Add Section - Ultra Compact */
@@ -264,22 +420,29 @@
         font-size: 0.65rem !important;
     }
 
+    .header .tagline {
+        font-size: 0.65rem !important;
+    }
+
     .app-container {
-        padding-top: 140px !important;
+        padding-top: 170px !important;
+        /* Increased for wrapped input */
     }
 }
 
 /* Ultra Compact Modal Positioning */
 @media (max-width: 600px) {
     .modal {
-        top: 140px !important;
-        /* Below ultra-compact header */
-        bottom: 75px !important;
-        /* Above bottom nav */
-        height: auto !important;
-        background: rgba(0, 0, 0, 0.3) !important;
+        top: 0 !important;
+        /* Occupy entire screen */
+        bottom: 0 !important;
+        /* Occupy entire screen */
+        height: 100% !important;
+        background: rgba(0, 0, 0, 0.8) !important;
+        /* Darker background for focus */
         padding: 0 !important;
         display: block !important;
+        z-index: 10000 !important;
     }
 
     .modal-content {
@@ -293,37 +456,292 @@
     }
 
     .modal-body {
-        padding: 0.4rem !important;
+        padding: 1.5rem !important;
     }
 
     .modal-header {
-        padding: 0.5rem !important;
+        padding: 1rem 1.5rem !important;
     }
 
     .modal-footer {
-        padding: 0.5rem !important;
+        padding: 1rem 1.5rem !important;
+    }
+
+    /* Header Search Wrapper on Mobile */
+    .header-search-wrapper {
+        padding: 4px !important;
+        gap: 2px !important;
+    }
+
+    #keywordInput {
+        width: 100% !important;
+        margin-bottom: 2px !important;
+    }
+
+    .header-buttons-row {
+        gap: 4px !important;
+    }
+
+    .input-container {
+        gap: 4px !important;
     }
 }
 
-/* Minimize even more when scrolling */
-body.scrolling .header {
-    transform: scale(0.85) translateY(-10px) !important;
-    opacity: 0.4 !important;
-    height: 50px !important;
+/* Removed scroll-based minimization - header is now permanently fixed & minimal */
+
+/* Global Image and Content Overflow Fix */
+img,
+video,
+canvas,
+svg {
+    max-width: 100% !important;
+    height: auto !important;
 }
 
-body.scrolling .header-search-wrapper {
-    transform: scale(0.7) translateY(-15px) !important;
-    opacity: 0.15 !important;
-    max-height: 40px !important;
+* {
+    max-width: 100vw;
 }
 
-body.scrolling .app-container {
-    padding-top: 110px !important;
+.app-container {
+    overflow-x: hidden !important;
 }
 
-/* At top/bottom - normal padding */
-body.at-top .app-container,
-body.at-bottom .app-container {
-    padding-top: 200px !important;
+/* Compact Dashboard Override */
+.dashboard-wrapper {
+    margin: 0.2rem 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+}
+
+.dashboard-grid {
+    gap: 0.8rem !important;
+    padding: 0.5rem !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+}
+
+@media (max-width: 600px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+.dashboard-card {
+    padding: 1rem !important;
+    min-height: 80px !important;
+    background: rgba(30, 30, 50, 0.6) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+
+    border-radius: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+}
+
+.dashboard-card-header {
+    margin-bottom: 2px !important;
+}
+
+.dashboard-card-header i {
+    width: 14px !important;
+    height: 14px !important;
+}
+
+.dashboard-card h4 {
+    font-size: 0.85rem !important;
+    margin: 0 !important;
+    opacity: 0.9 !important;
+}
+
+.dashboard-card-value {
+    font-size: 1.4rem !important;
+    font-weight: 800 !important;
+}
+
+.dashboard-card-label {
+    font-size: 0.75rem !important;
+}
+
+
+/* Dynamic Header Hiding & Scroll Locking on Mobile */
+@media (max-width: 600px) {
+
+    /* LOCK BODY SCROLL when modal is open */
+    body.modal-open {
+        overflow: hidden !important;
+        position: fixed !important;
+        width: 100% !important;
+    }
+
+    body.modal-open .header {
+        display: none !important;
+    }
+
+    body.modal-open .app-container {
+        padding-top: 0 !important;
+    }
+
+    body.modal-open .modal {
+        top: 0 !important;
+        bottom: 0 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        border-radius: 0 !important;
+        padding-top: env(safe-area-inset-top) !important;
+        z-index: 2000 !important;
+        overflow-y: auto !important;
+        /* Allow modal itself to scroll */
+    }
+
+    body.modal-open .modal-content {
+        height: 100% !important;
+        max-height: 100% !important;
+        border-radius: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        border: none !important;
+    }
+
+    body.modal-open .modal-body {
+        flex: 1 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    /* Fix Header Overlap */
+    .header-top {
+        position: relative !important;
+        /* Was fixed, caused overlap with logo */
+        height: auto !important;
+        padding: 5px 10px !important;
+        background: transparent !important;
+        border: none !important;
+    }
+
+    .header .logo {
+        margin-top: 5px !important;
+        /* clear header-top */
+        margin-bottom: 5px !important;
+    }
+
+    .team-badge {
+        display: inline-block !important;
+        background: rgba(var(--primary-rgb), 0.2) !important;
+        padding: 2px 8px !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(var(--primary-rgb), 0.4) !important;
+        margin-left: 5px !important;
+        font-size: 0.7rem !important;
+        vertical-align: middle !important;
+    }
+
+    /* Ensure user info doesn't crowd logo */
+    .user-info {
+        max-width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        margin-bottom: 0 !important;
+    }
+
+    /* Specific Fix for Appointment Modal Header on Mobile */
+    #appointmentModal .modal-header {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 10px !important;
+    }
+
+    #appointmentModal .modal-header h2 {
+        font-size: 1.2rem !important;
+        flex: 1 !important;
+        margin: 0 !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Ensure close button group is visible */
+    #appointmentModal .modal-header>div {
+        display: flex !important;
+        gap: 15px !important;
+        margin-left: 10px !important;
+        flex-shrink: 0 !important;
+    }
+
+    #closeAppointmentModal {
+        width: 36px !important;
+        height: 36px !important;
+        background: rgba(239, 68, 68, 0.2) !important;
+        /* Slight red tint */
+        border: 1px solid rgba(239, 68, 68, 0.5) !important;
+        border-radius: 50% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 1.1rem !important;
+        color: white !important;
+        z-index: 2005 !important;
+    }
+
+    /* Fix Footer Visibility in Mobile Modals */
+    body.modal-open .modal-footer {
+        flex-shrink: 0 !important;
+        /* Don't shrink */
+        padding-bottom: max(20px, env(safe-area-inset-bottom)) !important;
+        background: var(--bg-card) !important;
+        /* Ensure content behind doesn't show through */
+        z-index: 2010 !important;
+    }
+
+    /* Make buttons in modal footer clearly visible */
+    body.modal-open .modal-footer .btn-secondary,
+    body.modal-open .modal-footer .btn-primary,
+    body.modal-open .modal-footer #archiveTaskBtn {
+        opacity: 1 !important;
+        background-color: var(--bg-glass) !important;
+        border: 1px solid var(--border-glass) !important;
+        min-height: 48px !important;
+        /* Touch target size */
+    }
+
+    /* Specific fix for archive/unarchive to ensure text is white */
+    /* Fix Archive Button Overlay on Mobile: Hide text, show icon only */
+    #archiveTaskBtn .label {
+        display: none !important;
+    }
+
+    #archiveTaskBtn {
+        width: 48px !important;
+        /* Force to square/icon size */
+        min-width: 48px !important;
+        padding: 0 !important;
+        justify-content: center !important;
+    }
+
+    #archiveTaskBtn .icon {
+        margin: 0 !important;
+        font-size: 1.2rem !important;
+    }
+
+    /* Ensure other buttons in footer are also square/compact if needed */
+    body.modal-open .modal-footer .icon-btn {
+        width: 48px !important;
+        min-width: 48px !important;
+    }
+
+    /* Appointment Modal Back Button */
+    .modal-header .btn-back {
+        background: transparent !important;
+        border: none !important;
+        color: var(--text-secondary) !important;
+        font-size: 1rem !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 5px !important;
+        padding: 5px !important;
+        margin-right: 10px !important;
+    }
 }
