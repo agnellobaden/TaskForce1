@@ -21,7 +21,7 @@ const app = {
         },
         aiConfig: {
             provider: 'openai',
-            openaiKey: '',
+            openaiKey: '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',
             grokKey: '',
             geminiKey: ''
         }
@@ -76,13 +76,6 @@ const app = {
             if (this.shortcuts) this.shortcuts.render();
             this.dashboard.initDragAndDrop();
             this.dashboard.applyOrder();
-
-            // Initialize card resizing
-            setTimeout(() => {
-                this.dashboard.initCardResize();
-                this.dashboard.createTodoShoppingContainer();
-            }, 500); // Delay to ensure DOM is ready
-
             this.voice.init();
 
             // Zeit-Tracker initialisieren (mit Persistenz)
@@ -203,27 +196,45 @@ const app = {
         if (!this.state.household) this.state.household = [];
         if (!this.state.meals) this.state.meals = new Array(7).fill('');
 
-        // User startet mit leerem Kontakt-State (keine Dummy-Daten)
+        // Add test data if empty
+        if (this.state.contacts.length === 0) {
+            this.state.contacts = [
+                { id: 1, name: 'Max Müller', phone: '+49 123 456789', email: 'max@business.de', category: 'business' },
+                { id: 2, name: 'Lisa Schmidt', phone: '+49 987 654321', email: 'lisa@example.de', category: 'private' },
+                { id: 3, name: 'Tom Wagner', phone: '+49 555 123456', email: 'tom@company.de', category: 'business' },
+            ];
+            this.saveState();
+        }
 
-        // User startet mit leerem Event-State (keine Dummy-Events)
+        if (this.state.events.length === 0) {
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 1);
+            this.state.events = [
+                { id: 1, title: 'Team Meeting', date: today.toISOString().split('T')[0], time: '10:00', category: 'business', start: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 10, 0).toISOString() },
+                { id: 2, title: 'Kaffee mit Freund', date: today.toISOString().split('T')[0], time: '15:00', category: 'private', start: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 15, 0).toISOString() },
+                { id: 3, title: 'Präsentation', date: tomorrow.toISOString().split('T')[0], time: '09:00', category: 'business', start: new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 9, 0).toISOString() },
+            ];
+            this.saveState();
+        }
 
         // Firebase Default Config Migration
         if (!this.state.cloud) this.state.cloud = {};
         if (!this.state.cloud.firebaseConfig || this.state.cloud.firebaseConfig.length < 5) {
             this.state.cloud.firebaseConfig = JSON.stringify({
-                apiKey: "",
-                authDomain: "",
-                projectId: "",
-                storageBucket: "",
-                messagingSenderId: "",
-                appId: "",
-                measurementId: ""
+                apiKey: "AIzaSyCdiwAhgLBNnIdgvpWW3qpeTaKoSy1nTM0",
+                authDomain: "taskforce-91683.firebaseapp.com",
+                projectId: "taskforce-91683",
+                storageBucket: "taskforce-91683.firebasestorage.app",
+                messagingSenderId: "203568113458",
+                appId: "1:203568113458:web:666709ae3263977a43592b",
+                measurementId: "G-K8GQZGB8KE"
             }, null, 2);
             this.saveState();
         }
 
         // Default Key Migration
-        const defKey = '';
+        const defKey = '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';
         if (this.state.aiConfig.provider === 'openai' && (!this.state.aiConfig.openaiKey || this.state.aiConfig.openaiKey.length < 10)) {
             this.state.aiConfig.openaiKey = defKey;
             this.saveState();
@@ -311,20 +322,7 @@ const app = {
 
     saveState(skipSync = false) {
         try {
-            const stateString = JSON.stringify(this.state);
-            const sizeInBytes = new Blob([stateString]).size;
-
-            // QUOTA-CHECK: Warne bei 90% Auslastung
-            if (sizeInBytes > 4.5 * 1024 * 1024) { // 4.5MB von ~5MB
-                console.warn('⚠️ LocalStorage fast voll:', (sizeInBytes / (1024 * 1024)).toFixed(2), 'MB');
-                // Zeige Warnung nur einmal pro Session
-                if (!this._quotaWarningShown) {
-                    alert('⚠️ Speicher zu 90% voll!\n\nBitte archiviere alte Termine und Aufgaben.');
-                    this._quotaWarningShown = true;
-                }
-            }
-
-            localStorage.setItem('taskforce_state', stateString);
+            localStorage.setItem('taskforce_state', JSON.stringify(this.state));
             this.gamification.updateUI();
 
             // Auto-Sync Push (Debounced)
@@ -332,15 +330,7 @@ const app = {
                 clearTimeout(this._syncTimer);
                 this._syncTimer = setTimeout(() => this.cloud.push(), 2000);
             }
-        } catch (e) {
-            if (e.name === 'QuotaExceededError') {
-                alert('❌ KRITISCH: Speicher voll!\n\nDaten konnten nicht gespeichert werden.\nBitte lösche alte Einträge.');
-                console.error('QuotaExceededError - Datengröße:', new Blob([JSON.stringify(this.state)]).size / 1024, 'KB');
-            } else {
-                console.error("Save Error", e);
-                alert('❌ Fehler beim Speichern: ' + e.message);
-            }
-        }
+        } catch (e) { console.error("Save Error", e); }
     },
 
     // --- USER MOUDULE ---
@@ -390,56 +380,22 @@ const app = {
                 location.reload();
             }
         },
-        // SICHERES HASHING mit PBKDF2 + Salt (Produktions-Standard)
-        async hashPassword(password) {
-            const salt = crypto.getRandomValues(new Uint8Array(16));
-            const encoder = new TextEncoder();
-            const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
-            const hashBuffer = await crypto.subtle.deriveBits({
-                name: 'PBKDF2',
-                salt: salt,
-                iterations: 100000,
-                hash: 'SHA-256'
-            }, keyMaterial, 256);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const saltArray = Array.from(salt);
-            return {
-                hash: hashArray.map(b => b.toString(16).padStart(2, '0')).join(''),
-                salt: saltArray.map(b => b.toString(16).padStart(2, '0')).join('')
-            };
-        },
-        async verifyPassword(password, storedHash, storedSalt) {
-            const salt = new Uint8Array(storedSalt.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-            const encoder = new TextEncoder();
-            const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
-            const hashBuffer = await crypto.subtle.deriveBits({
-                name: 'PBKDF2',
-                salt: salt,
-                iterations: 100000,
-                hash: 'SHA-256'
-            }, keyMaterial, 256);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const computedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            return computedHash === storedHash;
-        },
-        async submit() {
+        submit() {
             const name = document.getElementById('authName').value.trim();
             const pass = document.getElementById('authPass').value.trim();
             const passRep = document.getElementById('authPassRepeat').value.trim();
+            const team = document.getElementById('authTeam').value.trim();
 
             if (!name || !pass) { alert("Bitte Name und Passwort eingeben."); return; }
 
             if (this.mode === 'register') {
                 if (pass !== passRep) { alert("Die Passwörter stimmen nicht überein! ❌"); return; }
 
-                // SICHERES HASHING
-                const { hash, salt } = await this.hashPassword(pass);
-
+                // Save new user (Team Name set to empty initially or default)
                 app.state.user = {
                     name: name,
-                    passwordHash: hash,
-                    passwordSalt: salt,
-                    teamName: name,
+                    password: pass,
+                    teamName: name, // Default Team Name is Username
                     team: [{ id: Date.now(), name: name }],
                     isLoggedIn: true
                 };
@@ -448,9 +404,11 @@ const app = {
                 this.closeOverlay();
                 app.cloud.init();
             } else {
+                // Login Check
                 const useTeam = document.getElementById('useTeamSync').checked;
                 const teamInput = document.getElementById('authTeam').value.trim();
 
+                // If team sync is active, team key is REQUIRED. If not, use username.
                 if (useTeam && !teamInput) {
                     alert("Bitte Team-Namen eingeben oder Haken entfernen.");
                     return;
@@ -459,27 +417,20 @@ const app = {
                 const teamToUse = useTeam ? teamInput : name;
 
                 if (app.state.user && app.state.user.name === name) {
+                    // Update Team Name on Login
                     app.state.user.teamName = teamToUse;
 
-                    // MIGRATION: Alte unsichere Hashes erkennen und aktualisieren
-                    if (!app.state.user.passwordSalt || app.state.user.password) {
-                        console.warn('⚠️ Migriere alten unsicheren Hash zu PBKDF2');
-                        const { hash, salt } = await this.hashPassword(pass);
-                        app.state.user.passwordHash = hash;
-                        app.state.user.passwordSalt = salt;
-                        delete app.state.user.password;
+                    // LEGACY MIGRATION
+                    if (!app.state.user.password && pass) {
+                        app.state.user.password = pass;
                         app.state.user.isLoggedIn = true;
                         app.saveState();
+                        alert(`Passwort festgelegt. ✅\nTeam: ${teamToUse}`);
                         this.closeOverlay();
-                        alert('🔒 Dein Passwort wurde auf sicheres Format aktualisiert.');
-                        app.cloud.init();
                         return;
                     }
 
-                    // Normaler Login mit sicherem PBKDF2
-                    const isValid = await this.verifyPassword(pass, app.state.user.passwordHash, app.state.user.passwordSalt);
-
-                    if (isValid) {
+                    if (app.state.user.password === pass) {
                         app.state.user.isLoggedIn = true;
                         app.saveState();
                         this.closeOverlay();
@@ -1614,14 +1565,6 @@ const app = {
         if (this.dashboard) {
             this.dashboard.applyOrder();
             this.dashboard.applyMode(); // Ensure mode visibility is applied
-
-            // RE-INIT CARD RESIZING & LAYOUT (Persistence Fix)
-            if (this.dashboard.initCardResize) {
-                setTimeout(() => {
-                    this.dashboard.initCardResize();
-                    this.dashboard.createTodoShoppingContainer();
-                }, 100);
-            }
         }
         if (window.lucide) lucide.createIcons();
     },
@@ -3502,69 +3445,41 @@ const app = {
                 }
             }
         },
-        async processCommand(text) {
+        processCommand(text) {
             if (this.targetInput) {
                 const el = document.getElementById(this.targetInput);
                 if (el) { el.value = text; el.classList.remove('voice-listening'); }
                 return;
             }
 
-            // Show global processing state
-            const processingToast = app.notifications ? app.notifications.send("🧠 Analysiere...", "Spracheingabe wird verarbeitet", false) : null;
+            // Intelligent voice processing
+            const handled = this.intelligentProcess(text);
+            if (handled) return;
 
-            // Intelligent voice processing (Async)
-            const handled = await this.intelligentProcess(text);
-
-            if (!handled) {
-                // Fallback to simple navigation
-                const t = text.toLowerCase();
-                if (t.includes('kalender')) app.navigateTo('calendar');
-                else if (t.includes('aufgabe')) app.navigateTo('tasks');
-                else if (t.includes('fahrt')) app.navigateTo('drive');
-                else if (t.includes('dashboard')) app.navigateTo('dashboard');
-                else if (t.includes('kontakt')) app.navigateTo('contacts');
-                else alert("Konnte den Befehl nicht verstehen: " + text);
-            }
+            // Fallback to simple navigation
+            const t = text.toLowerCase();
+            if (t.includes('kalender')) app.navigateTo('calendar');
+            else if (t.includes('aufgabe')) app.navigateTo('tasks');
+            else if (t.includes('fahrt')) app.navigateTo('drive');
+            else if (t.includes('dashboard')) app.navigateTo('dashboard');
+            else if (t.includes('kontakt')) app.navigateTo('contacts');
         },
 
-        async intelligentProcess(text) {
+        intelligentProcess(text) {
             const lower = text.toLowerCase();
 
-            // 1. Try AI Analysis if configured (Smart Parsing)
-            if (app.state.aiConfig && (app.state.aiConfig.openaiKey || app.state.aiConfig.geminiKey)) {
-                try {
-                    const aiResult = await this.analyzeWithAI(text);
-                    if (aiResult) {
-                        if (aiResult.intent === 'event') {
-                            app.modals.open('addEvent', aiResult);
-                            return true;
-                        } else if (aiResult.intent === 'task' || aiResult.intent === 'shopping') {
-                            app.tasks.add(aiResult.title, false, aiResult.intent);
-                            app.navigateTo('dashboard');
-                            return true;
-                        } else if (aiResult.intent === 'contact') {
-                            app.modals.open('addContact', aiResult);
-                            return true;
-                        } else if (aiResult.intent === 'expense') {
-                            app.finance.add(aiResult.amount || 0, aiResult.title, aiResult.date || new Date().toISOString().split('T')[0], false);
-                            return true;
-                        }
-                    }
-                } catch (e) {
-                    console.warn("AI Voice Analysis failed, falling back to regex", e);
-                }
-            }
-
-            // 2. Fallback to Regex extraction
+            // Extract information from speech
             const info = this.extractInfo(text);
 
             // Determine intent
             if (this.isContactAction(lower)) {
                 return this.processContactAction(text, lower, info);
             } else if (this.isEventIntent(lower)) {
+                // Open modal to allow review of all extracted details and see the transcript
                 app.modals.open('addEvent', info);
                 return true;
             } else if (this.isExpenseIntent(lower)) {
+                // Direct add if possible
                 if (info.amount && info.title) {
                     app.finance.add(info.amount, info.title, info.date || new Date().toISOString().split('T')[0], false);
                     app.navigateTo('dashboard');
@@ -3574,53 +3489,14 @@ const app = {
                 return true;
             } else if (this.isTaskIntent(lower)) {
                 const category = lower.includes('kaufen') || lower.includes('einkauf') || lower.includes('shop') ? 'shopping' : 'todo';
+                // Tasks are safe to add directly usually
                 app.tasks.add(info.title || text, false, category);
                 app.navigateTo('dashboard');
                 return true;
             }
 
+            // Try smartCommand as fallback
             return app.smartCommand(text);
-        },
-
-        async analyzeWithAI(text) {
-            const config = app.state.aiConfig;
-            let apiKey = config.openaiKey || config.grokKey || config.geminiKey;
-
-            const prompt = `Analysiere diesen Text und erstelle ein JSON Objekt.
-            Text: "${text}"
-            
-            Formate:
-            1. Für Termine: {"intent": "event", "title": "...", "date": "YYYY-MM-DD", "time": "HH:MM", "location": "...", "phone": "...", "description": "...", "category": "business|private"}
-            2. Für Aufgaben: {"intent": "task", "title": "...", "category": "todo|shopping"}
-            3. Für Kontakte: {"intent": "contact", "name": "...", "phone": "...", "email": "...", "address": "...", "category": "business|private"}
-            4. Für Ausgaben: {"intent": "expense", "title": "...", "amount": 0.0, "date": "YYYY-MM-DD"}
-            
-            Antworte NUR mit dem JSON.`;
-
-            let resultJson = null;
-
-            if (config.provider === 'openai') {
-                const res = await fetch('https://api.openai.com/v1/chat/completions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                    body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: 'You are a JSON assistant.' }, { role: 'user', content: prompt }] })
-                });
-                const data = await res.json();
-                resultJson = data.choices[0].message.content;
-            } else if (config.provider === 'gemini') {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                });
-                const data = await res.json();
-                resultJson = data.candidates[0].content.parts[0].text;
-            }
-
-            if (resultJson) {
-                return JSON.parse(resultJson.replace(/```json|```/g, '').trim());
-            }
-            return null;
         },
 
         extractInfo(text) {
@@ -3673,8 +3549,7 @@ const app = {
             }
 
             // Extract location
-            // Improved Regex to catch "in [Ort]" or "nach [Ort]"
-            const locationRegex = /(in|nach|bei|straße|platz|weg|allee|dorf|stadt|bahnhof|flughafen)\s+([A-ZÄÖÜ][a-zäöüß\s\d\.]+)/i;
+            const locationRegex = /(in|straße|platz|weg|allee|dorf|stadt|bahnhof|flughafen)\s+([A-ZÄÖÜ][a-zäöüß\s]+(?:straße|platz|weg|allee|dorf|stadt)?)/i;
             const locationMatch = text.match(locationRegex);
             if (locationMatch) info.location = locationMatch[2].trim();
 
@@ -3684,7 +3559,7 @@ const app = {
             if (info.email) title = title.replace(info.email, '');
             if (info.amount) title = title.replace(/(\d+[,.]?\d*)\s*(euro|€)/i, '');
             if (info.time) title = title.replace(/(\d{1,2}):(\d{2})|um\s+(\d{1,2})\s*(uhr)?/i, '');
-            if (info.location) title = title.replace(new RegExp(`(in|nach|bei|straße|platz|weg|allee|dorf|stadt|bahnhof|flughafen)\\s+${info.location}`, 'i'), '');
+            if (info.location) title = title.replace(new RegExp(`(in|straße|platz|weg|allee|dorf|stadt|bahnhof|flughafen)\\s+${info.location}`, 'i'), '');
 
             // Remove extracted date keywords from title
             if (info.date) {
@@ -4261,47 +4136,23 @@ const app = {
         db: null,
         unsubscribe: null,
         init() {
-            if (!app.state.cloud || !app.state.cloud.firebaseConfig) {
-                this.updateIndicator(false);
-                return;
-            }
+            if (app.state.cloud && app.state.cloud.firebaseConfig && window.firebase) {
+                try {
+                    const config = JSON.parse(app.state.cloud.firebaseConfig);
+                    if (!firebase.apps.length) {
+                        firebase.initializeApp(config);
+                    }
+                    this.db = firebase.firestore();
+                    console.log("Firebase Initialized");
 
-            if (!window.firebase) {
-                console.warn('⚠️ Firebase SDK nicht geladen');
-                this.updateIndicator(false);
-                return;
-            }
-
-            try {
-                const config = JSON.parse(app.state.cloud.firebaseConfig);
-
-                // VALIDIERUNG: Prüfe ob Config vollständig
-                const requiredFields = ['apiKey', 'authDomain', 'projectId'];
-                const isValid = requiredFields.every(field =>
-                    config[field] && config[field].length > 0
-                );
-
-                if (!isValid) {
-                    console.warn('⚠️ Firebase Config unvollständig oder leer');
+                    this.listen(); // Start Real-Time Listener
+                    this.startPresence(); // Start Heartbeat
+                } catch (e) {
+                    console.error("Firebase Init Failed", e);
                     this.updateIndicator(false);
-                    // Stille Warnung - User kann Config in Einstellungen eingeben
-                    return;
                 }
-
-                if (!firebase.apps.length) {
-                    firebase.initializeApp(config);
-                }
-                this.db = firebase.firestore();
-                console.log("✅ Firebase Initialized");
-
-                this.listen(); // Start Real-Time Listener
-                this.startPresence(); // Start Heartbeat
-            } catch (e) {
-                console.error("❌ Firebase Init Failed", e);
+            } else {
                 this.updateIndicator(false);
-                if (e.message.includes('API key')) {
-                    console.warn('💡 Tipp: Firebase Config in Einstellungen prüfen');
-                }
             }
         },
         activeMembers: [],
@@ -4621,12 +4472,6 @@ const app = {
                     g.classList.remove('single-column-mode');
                 }
             });
-
-            // Update button text
-            const btnText = document.getElementById('layoutToggleText');
-            if (btnText) {
-                btnText.textContent = app.state.dashboardLayout === 'single' ? '1 Spalte' : '2 Spalten';
-            }
         },
         initPayPal() {
             if (app.state.user.isPro) return;
@@ -6834,188 +6679,6 @@ const app = {
                     }, 2000);
                 }
             }, 300);
-        },
-
-        // --- CARD RESIZE FUNCTIONALITY ---
-        initCardResize() {
-            const cards = document.querySelectorAll('.dashboard-grid .card');
-
-            cards.forEach(card => {
-                // Skip if already initialized
-                if (card.querySelector('.card-resize-handle')) return;
-
-                // Create corner resize handle (both width & height)
-                const handleCorner = document.createElement('div');
-                handleCorner.className = 'card-resize-handle';
-                handleCorner.title = 'Größe anpassen (Breite & Höhe)';
-                card.appendChild(handleCorner);
-
-                // Create right edge resize handle (width only)
-                const handleRight = document.createElement('div');
-                handleRight.className = 'card-resize-handle-right';
-                handleRight.title = 'Breite anpassen';
-                card.appendChild(handleRight);
-
-                // Create bottom edge resize handle (height only)
-                const handleBottom = document.createElement('div');
-                handleBottom.className = 'card-resize-handle-bottom';
-                handleBottom.title = 'Höhe anpassen';
-                card.appendChild(handleBottom);
-
-                // Create reset button
-                const resetBtn = document.createElement('div');
-                resetBtn.className = 'card-reset-size';
-                resetBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>';
-                resetBtn.title = 'Größe zurücksetzen';
-                resetBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    this.resetCardSize(card.id);
-                };
-                card.appendChild(resetBtn);
-
-                // Add resize events (Mouse)
-                handleCorner.addEventListener('mousedown', (e) => this.startResize(e, card, 'both'));
-                handleRight.addEventListener('mousedown', (e) => this.startResize(e, card, 'width'));
-                handleBottom.addEventListener('mousedown', (e) => this.startResize(e, card, 'height'));
-
-                // Add resize events (Touch)
-                handleCorner.addEventListener('touchstart', (e) => this.startResize(e, card, 'both'), { passive: false });
-                handleRight.addEventListener('touchstart', (e) => this.startResize(e, card, 'width'), { passive: false });
-                handleBottom.addEventListener('touchstart', (e) => this.startResize(e, card, 'height'), { passive: false });
-            });
-
-            // Load saved sizes
-            this.loadCardSizes();
-        },
-
-        startResize(e, card, direction = 'both') {
-            if (e.cancelable) e.preventDefault();
-            e.stopPropagation();
-
-            const isTouch = e.type === 'touchstart';
-            const pageX = isTouch ? e.touches[0].pageX : e.clientX;
-            const pageY = isTouch ? e.touches[0].pageY : e.clientY;
-
-            const startX = pageX;
-            const startY = pageY;
-            const startWidth = card.offsetWidth;
-            const startHeight = card.offsetHeight;
-
-            card.classList.add('is-resizing');
-            document.body.classList.add('is-resizing-card');
-
-            const moveHandler = (e) => {
-                if (e.cancelable) e.preventDefault();
-                const curX = isTouch ? e.touches[0].pageX : e.clientX;
-                const curY = isTouch ? e.touches[0].pageY : e.clientY;
-
-                const deltaX = curX - startX;
-                const deltaY = curY - startY;
-
-                // Snap to Grid (10px increments for neat alignment)
-                const snap = 10;
-
-                if (direction === 'both' || direction === 'width') {
-                    let newWidth = Math.max(140, startWidth + deltaX); // Min width
-                    newWidth = Math.round(newWidth / snap) * snap;
-                    card.style.width = newWidth + 'px';
-                    card.setAttribute('data-custom-width', newWidth);
-                }
-
-                if (direction === 'both' || direction === 'height') {
-                    let newHeight = Math.max(100, startHeight + deltaY); // Min height
-                    newHeight = Math.round(newHeight / snap) * snap;
-                    card.style.height = newHeight + 'px';
-                    card.setAttribute('data-custom-height', newHeight);
-                }
-            };
-
-            const endHandler = () => {
-                card.classList.remove('is-resizing');
-                document.body.classList.remove('is-resizing-card');
-
-                if (isTouch) {
-                    document.removeEventListener('touchmove', moveHandler);
-                    document.removeEventListener('touchend', endHandler);
-                } else {
-                    document.removeEventListener('mousemove', moveHandler);
-                    document.removeEventListener('mouseup', endHandler);
-                }
-
-                // Save the new size
-                this.saveCardSize(card.id, card.offsetWidth, card.offsetHeight);
-            };
-
-            if (isTouch) {
-                document.addEventListener('touchmove', moveHandler, { passive: false });
-                document.addEventListener('touchend', endHandler);
-            } else {
-                document.addEventListener('mousemove', moveHandler);
-                document.addEventListener('mouseup', endHandler);
-            }
-        },
-
-        saveCardSize(cardId, width, height) {
-            if (!app.state.ui) app.state.ui = {};
-            if (!app.state.ui.cardSizes) app.state.ui.cardSizes = {};
-
-            app.state.ui.cardSizes[cardId] = { width, height };
-            app.saveState();
-        },
-
-        loadCardSizes() {
-            if (!app.state.ui || !app.state.ui.cardSizes) return;
-
-            Object.entries(app.state.ui.cardSizes).forEach(([cardId, size]) => {
-                const card = document.getElementById(cardId);
-                if (card && size.width && size.height) {
-                    card.style.width = size.width + 'px';
-                    card.style.height = size.height + 'px';
-                    card.setAttribute('data-custom-width', size.width);
-                    card.setAttribute('data-custom-height', size.height);
-                }
-            });
-        },
-
-        resetCardSize(cardId) {
-            const card = document.getElementById(cardId);
-            if (!card) return;
-
-            card.style.width = '';
-            card.style.height = '';
-            card.removeAttribute('data-custom-width');
-            card.removeAttribute('data-custom-height');
-
-            // Remove from saved sizes
-            if (app.state.ui && app.state.ui.cardSizes) {
-                delete app.state.ui.cardSizes[cardId];
-                app.saveState();
-            }
-        },
-
-        // Create side-by-side container for To-Do and Shopping cards
-        createTodoShoppingContainer() {
-            const todoCard = document.getElementById('dashboardTasksCard');
-            const shoppingCard = document.getElementById('dashboardShoppingCard');
-
-            if (!todoCard || !shoppingCard) return;
-
-            // Check if container already exists
-            let container = document.querySelector('.dashboard-grid-row-todos-shopping');
-
-            if (!container) {
-                // Create container
-                container = document.createElement('div');
-                container.className = 'dashboard-grid-row-todos-shopping';
-
-                // Insert container before the first card
-                const parent = todoCard.parentElement;
-                parent.insertBefore(container, todoCard);
-
-                // Move cards into container
-                container.appendChild(todoCard);
-                container.appendChild(shoppingCard);
-            }
         }
     },
 
