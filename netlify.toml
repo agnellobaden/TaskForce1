@@ -1,0 +1,61 @@
+# Netlify Configuration für TaskForce Pro PWA
+
+[build]
+  # Kein Build-Prozess nötig (Plain HTML/JS)
+  publish = "."
+  
+[build.environment]
+  # Node Version (falls später benötigt)
+  NODE_VERSION = "18"
+
+# PWA-spezifische Headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+
+# Service Worker - Nie cachen!
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Pragma = "no-cache"
+    Expires = "0"
+
+# Manifest
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+
+# Cache für Assets (1 Jahr)
+[[headers]]
+  for = "*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.jpg"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Redirects (für SPA-Routing falls später benötigt)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = {Role = ["admin"]}
+  force = false
+
+# Edge Functions (optional - für zukünftige Features)
+# [[edge_functions]]
+#   function = "auth"
+#   path = "/api/*"

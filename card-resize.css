@@ -106,31 +106,35 @@
     max-width: 100%;
 }
 
-/* Side-by-side layout for To-Do and Shopping cards */
+/* Side-by-side layout for To-Do and Shopping cards - FLEX for flexibility */
 .dashboard-grid-row-todos-shopping {
     grid-column: span 2;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-wrap: wrap;
     gap: 20px;
     order: 100;
-    /* Keep them together */
+    width: 100%;
 }
 
 /* Override individual card grid-column when in side-by-side container */
 .dashboard-grid-row-todos-shopping .card {
-    grid-column: span 1 !important;
+    flex: 1 1 300px;
+    /* Grow, Shrink, Basis */
+    min-width: 0;
+    /* Allow shrinking below content size if needed */
 }
 
 /* Single column mode - stack cards vertically */
 .dashboard-grid.single-column-mode .dashboard-grid-row-todos-shopping {
     grid-column: span 1;
-    grid-template-columns: 1fr;
+    flex-direction: column;
 }
 
 /* Mobile responsiveness */
 @media (max-width: 768px) {
     .dashboard-grid-row-todos-shopping {
-        grid-template-columns: 1fr;
+        /* No specific column force - flex-wrap handles it based on card width */
+        width: 100%;
     }
 
     .card-resize-handle {

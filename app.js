@@ -21,7 +21,7 @@ const app = {
         },
         aiConfig: {
             provider: 'openai',
-            openaiKey: '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',
+            openaiKey: '',
             grokKey: '',
             geminiKey: ''
         }
@@ -203,45 +203,27 @@ const app = {
         if (!this.state.household) this.state.household = [];
         if (!this.state.meals) this.state.meals = new Array(7).fill('');
 
-        // Add test data if empty
-        if (this.state.contacts.length === 0) {
-            this.state.contacts = [
-                { id: 1, name: 'Max Müller', phone: '+49 123 456789', email: 'max@business.de', category: 'business' },
-                { id: 2, name: 'Lisa Schmidt', phone: '+49 987 654321', email: 'lisa@example.de', category: 'private' },
-                { id: 3, name: 'Tom Wagner', phone: '+49 555 123456', email: 'tom@company.de', category: 'business' },
-            ];
-            this.saveState();
-        }
+        // User startet mit leerem Kontakt-State (keine Dummy-Daten)
 
-        if (this.state.events.length === 0) {
-            const today = new Date();
-            const tomorrow = new Date(today);
-            tomorrow.setDate(today.getDate() + 1);
-            this.state.events = [
-                { id: 1, title: 'Team Meeting', date: today.toISOString().split('T')[0], time: '10:00', category: 'business', start: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 10, 0).toISOString() },
-                { id: 2, title: 'Kaffee mit Freund', date: today.toISOString().split('T')[0], time: '15:00', category: 'private', start: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 15, 0).toISOString() },
-                { id: 3, title: 'Präsentation', date: tomorrow.toISOString().split('T')[0], time: '09:00', category: 'business', start: new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 9, 0).toISOString() },
-            ];
-            this.saveState();
-        }
+        // User startet mit leerem Event-State (keine Dummy-Events)
 
         // Firebase Default Config Migration
         if (!this.state.cloud) this.state.cloud = {};
         if (!this.state.cloud.firebaseConfig || this.state.cloud.firebaseConfig.length < 5) {
             this.state.cloud.firebaseConfig = JSON.stringify({
-                apiKey: "AIzaSyCdiwAhgLBNnIdgvpWW3qpeTaKoSy1nTM0",
-                authDomain: "taskforce-91683.firebaseapp.com",
-                projectId: "taskforce-91683",
-                storageBucket: "taskforce-91683.firebasestorage.app",
-                messagingSenderId: "203568113458",
-                appId: "1:203568113458:web:666709ae3263977a43592b",
-                measurementId: "G-K8GQZGB8KE"
+                apiKey: "",
+                authDomain: "",
+                projectId: "",
+                storageBucket: "",
+                messagingSenderId: "",
+                appId: "",
+                measurementId: ""
             }, null, 2);
             this.saveState();
         }
 
         // Default Key Migration
-        const defKey = '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';
+        const defKey = '';
         if (this.state.aiConfig.provider === 'openai' && (!this.state.aiConfig.openaiKey || this.state.aiConfig.openaiKey.length < 10)) {
             this.state.aiConfig.openaiKey = defKey;
             this.saveState();
@@ -329,7 +311,20 @@ const app = {
 
     saveState(skipSync = false) {
         try {
-            localStorage.setItem('taskforce_state', JSON.stringify(this.state));
+            const stateString = JSON.stringify(this.state);
+            const sizeInBytes = new Blob([stateString]).size;
+
+            // QUOTA-CHECK: Warne bei 90% Auslastung
+            if (sizeInBytes > 4.5 * 1024 * 1024) { // 4.5MB von ~5MB
+                console.warn('⚠️ LocalStorage fast voll:', (sizeInBytes / (1024 * 1024)).toFixed(2), 'MB');
+                // Zeige Warnung nur einmal pro Session
+                if (!this._quotaWarningShown) {
+                    alert('⚠️ Speicher zu 90% voll!\n\nBitte archiviere alte Termine und Aufgaben.');
+                    this._quotaWarningShown = true;
+                }
+            }
+
+            localStorage.setItem('taskforce_state', stateString);
             this.gamification.updateUI();
 
             // Auto-Sync Push (Debounced)
@@ -337,7 +332,15 @@ const app = {
                 clearTimeout(this._syncTimer);
                 this._syncTimer = setTimeout(() => this.cloud.push(), 2000);
             }
-        } catch (e) { console.error("Save Error", e); }
+        } catch (e) {
+            if (e.name === 'QuotaExceededError') {
+                alert('❌ KRITISCH: Speicher voll!\n\nDaten konnten nicht gespeichert werden.\nBitte lösche alte Einträge.');
+                console.error('QuotaExceededError - Datengröße:', new Blob([JSON.stringify(this.state)]).size / 1024, 'KB');
+            } else {
+                console.error("Save Error", e);
+                alert('❌ Fehler beim Speichern: ' + e.message);
+            }
+        }
     },
 
     // --- USER MOUDULE ---
@@ -387,22 +390,56 @@ const app = {
                 location.reload();
             }
         },
-        submit() {
+        // SICHERES HASHING mit PBKDF2 + Salt (Produktions-Standard)
+        async hashPassword(password) {
+            const salt = crypto.getRandomValues(new Uint8Array(16));
+            const encoder = new TextEncoder();
+            const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
+            const hashBuffer = await crypto.subtle.deriveBits({
+                name: 'PBKDF2',
+                salt: salt,
+                iterations: 100000,
+                hash: 'SHA-256'
+            }, keyMaterial, 256);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const saltArray = Array.from(salt);
+            return {
+                hash: hashArray.map(b => b.toString(16).padStart(2, '0')).join(''),
+                salt: saltArray.map(b => b.toString(16).padStart(2, '0')).join('')
+            };
+        },
+        async verifyPassword(password, storedHash, storedSalt) {
+            const salt = new Uint8Array(storedSalt.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+            const encoder = new TextEncoder();
+            const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
+            const hashBuffer = await crypto.subtle.deriveBits({
+                name: 'PBKDF2',
+                salt: salt,
+                iterations: 100000,
+                hash: 'SHA-256'
+            }, keyMaterial, 256);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const computedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return computedHash === storedHash;
+        },
+        async submit() {
             const name = document.getElementById('authName').value.trim();
             const pass = document.getElementById('authPass').value.trim();
             const passRep = document.getElementById('authPassRepeat').value.trim();
-            const team = document.getElementById('authTeam').value.trim();
 
             if (!name || !pass) { alert("Bitte Name und Passwort eingeben."); return; }
 
             if (this.mode === 'register') {
                 if (pass !== passRep) { alert("Die Passwörter stimmen nicht überein! ❌"); return; }
 
-                // Save new user (Team Name set to empty initially or default)
+                // SICHERES HASHING
+                const { hash, salt } = await this.hashPassword(pass);
+
                 app.state.user = {
                     name: name,
-                    password: pass,
-                    teamName: name, // Default Team Name is Username
+                    passwordHash: hash,
+                    passwordSalt: salt,
+                    teamName: name,
                     team: [{ id: Date.now(), name: name }],
                     isLoggedIn: true
                 };
@@ -411,11 +448,9 @@ const app = {
                 this.closeOverlay();
                 app.cloud.init();
             } else {
-                // Login Check
                 const useTeam = document.getElementById('useTeamSync').checked;
                 const teamInput = document.getElementById('authTeam').value.trim();
 
-                // If team sync is active, team key is REQUIRED. If not, use username.
                 if (useTeam && !teamInput) {
                     alert("Bitte Team-Namen eingeben oder Haken entfernen.");
                     return;
@@ -424,20 +459,27 @@ const app = {
                 const teamToUse = useTeam ? teamInput : name;
 
                 if (app.state.user && app.state.user.name === name) {
-                    // Update Team Name on Login
                     app.state.user.teamName = teamToUse;
 
-                    // LEGACY MIGRATION
-                    if (!app.state.user.password && pass) {
-                        app.state.user.password = pass;
+                    // MIGRATION: Alte unsichere Hashes erkennen und aktualisieren
+                    if (!app.state.user.passwordSalt || app.state.user.password) {
+                        console.warn('⚠️ Migriere alten unsicheren Hash zu PBKDF2');
+                        const { hash, salt } = await this.hashPassword(pass);
+                        app.state.user.passwordHash = hash;
+                        app.state.user.passwordSalt = salt;
+                        delete app.state.user.password;
                         app.state.user.isLoggedIn = true;
                         app.saveState();
-                        alert(`Passwort festgelegt. ✅\nTeam: ${teamToUse}`);
                         this.closeOverlay();
+                        alert('🔒 Dein Passwort wurde auf sicheres Format aktualisiert.');
+                        app.cloud.init();
                         return;
                     }
 
-                    if (app.state.user.password === pass) {
+                    // Normaler Login mit sicherem PBKDF2
+                    const isValid = await this.verifyPassword(pass, app.state.user.passwordHash, app.state.user.passwordSalt);
+
+                    if (isValid) {
                         app.state.user.isLoggedIn = true;
                         app.saveState();
                         this.closeOverlay();
@@ -4143,23 +4185,47 @@ const app = {
         db: null,
         unsubscribe: null,
         init() {
-            if (app.state.cloud && app.state.cloud.firebaseConfig && window.firebase) {
-                try {
-                    const config = JSON.parse(app.state.cloud.firebaseConfig);
-                    if (!firebase.apps.length) {
-                        firebase.initializeApp(config);
-                    }
-                    this.db = firebase.firestore();
-                    console.log("Firebase Initialized");
-
-                    this.listen(); // Start Real-Time Listener
-                    this.startPresence(); // Start Heartbeat
-                } catch (e) {
-                    console.error("Firebase Init Failed", e);
-                    this.updateIndicator(false);
-                }
-            } else {
+            if (!app.state.cloud || !app.state.cloud.firebaseConfig) {
                 this.updateIndicator(false);
+                return;
+            }
+
+            if (!window.firebase) {
+                console.warn('⚠️ Firebase SDK nicht geladen');
+                this.updateIndicator(false);
+                return;
+            }
+
+            try {
+                const config = JSON.parse(app.state.cloud.firebaseConfig);
+
+                // VALIDIERUNG: Prüfe ob Config vollständig
+                const requiredFields = ['apiKey', 'authDomain', 'projectId'];
+                const isValid = requiredFields.every(field =>
+                    config[field] && config[field].length > 0
+                );
+
+                if (!isValid) {
+                    console.warn('⚠️ Firebase Config unvollständig oder leer');
+                    this.updateIndicator(false);
+                    // Stille Warnung - User kann Config in Einstellungen eingeben
+                    return;
+                }
+
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(config);
+                }
+                this.db = firebase.firestore();
+                console.log("✅ Firebase Initialized");
+
+                this.listen(); // Start Real-Time Listener
+                this.startPresence(); // Start Heartbeat
+            } catch (e) {
+                console.error("❌ Firebase Init Failed", e);
+                this.updateIndicator(false);
+                if (e.message.includes('API key')) {
+                    console.warn('💡 Tipp: Firebase Config in Einstellungen prüfen');
+                }
             }
         },
         activeMembers: [],
@@ -6731,10 +6797,15 @@ const app = {
                 };
                 card.appendChild(resetBtn);
 
-                // Add resize events
+                // Add resize events (Mouse)
                 handleCorner.addEventListener('mousedown', (e) => this.startResize(e, card, 'both'));
                 handleRight.addEventListener('mousedown', (e) => this.startResize(e, card, 'width'));
                 handleBottom.addEventListener('mousedown', (e) => this.startResize(e, card, 'height'));
+
+                // Add resize events (Touch)
+                handleCorner.addEventListener('touchstart', (e) => this.startResize(e, card, 'both'), { passive: false });
+                handleRight.addEventListener('touchstart', (e) => this.startResize(e, card, 'width'), { passive: false });
+                handleBottom.addEventListener('touchstart', (e) => this.startResize(e, card, 'height'), { passive: false });
             });
 
             // Load saved sizes
@@ -6742,47 +6813,70 @@ const app = {
         },
 
         startResize(e, card, direction = 'both') {
-            e.preventDefault();
+            if (e.cancelable) e.preventDefault();
             e.stopPropagation();
 
-            const startX = e.clientX;
-            const startY = e.clientY;
+            const isTouch = e.type === 'touchstart';
+            const pageX = isTouch ? e.touches[0].pageX : e.clientX;
+            const pageY = isTouch ? e.touches[0].pageY : e.clientY;
+
+            const startX = pageX;
+            const startY = pageY;
             const startWidth = card.offsetWidth;
             const startHeight = card.offsetHeight;
 
             card.classList.add('is-resizing');
             document.body.classList.add('is-resizing-card');
 
-            const onMouseMove = (e) => {
-                const deltaX = e.clientX - startX;
-                const deltaY = e.clientY - startY;
+            const moveHandler = (e) => {
+                if (e.cancelable) e.preventDefault();
+                const curX = isTouch ? e.touches[0].pageX : e.clientX;
+                const curY = isTouch ? e.touches[0].pageY : e.clientY;
 
-                // Calculate new dimensions based on direction
+                const deltaX = curX - startX;
+                const deltaY = curY - startY;
+
+                // Snap to Grid (10px increments for neat alignment)
+                const snap = 10;
+
                 if (direction === 'both' || direction === 'width') {
-                    const newWidth = Math.max(200, startWidth + deltaX);
+                    let newWidth = Math.max(140, startWidth + deltaX); // Min width
+                    newWidth = Math.round(newWidth / snap) * snap;
                     card.style.width = newWidth + 'px';
                     card.setAttribute('data-custom-width', newWidth);
                 }
 
                 if (direction === 'both' || direction === 'height') {
-                    const newHeight = Math.max(150, startHeight + deltaY);
+                    let newHeight = Math.max(100, startHeight + deltaY); // Min height
+                    newHeight = Math.round(newHeight / snap) * snap;
                     card.style.height = newHeight + 'px';
                     card.setAttribute('data-custom-height', newHeight);
                 }
             };
 
-            const onMouseUp = () => {
+            const endHandler = () => {
                 card.classList.remove('is-resizing');
                 document.body.classList.remove('is-resizing-card');
-                document.removeEventListener('mousemove', onMouseMove);
-                document.removeEventListener('mouseup', onMouseUp);
+
+                if (isTouch) {
+                    document.removeEventListener('touchmove', moveHandler);
+                    document.removeEventListener('touchend', endHandler);
+                } else {
+                    document.removeEventListener('mousemove', moveHandler);
+                    document.removeEventListener('mouseup', endHandler);
+                }
 
                 // Save the new size
                 this.saveCardSize(card.id, card.offsetWidth, card.offsetHeight);
             };
 
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('mouseup', onMouseUp);
+            if (isTouch) {
+                document.addEventListener('touchmove', moveHandler, { passive: false });
+                document.addEventListener('touchend', endHandler);
+            } else {
+                document.addEventListener('mousemove', moveHandler);
+                document.addEventListener('mouseup', endHandler);
+            }
         },
 
         saveCardSize(cardId, width, height) {

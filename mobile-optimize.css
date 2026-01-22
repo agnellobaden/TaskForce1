@@ -13,7 +13,8 @@
     /* 2. Compact Grid Layout */
     .dashboard-grid,
     .grid-container {
-        display: grid !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
         /* Columns are handled by modern-theme.css (1fr or 2fr based on setting) */
         gap: 12px !important;
         padding-bottom: 100px !important;
@@ -27,7 +28,9 @@
     .card-hero {
         padding: 12px !important;
         margin: 0 !important;
-        width: 100% !important;
+        /* width: 100% !important; REMOVED FOR RESIZING */
+        min-width: 48%; /* Default roughly half width */
+        flex-grow: 1; 
         box-shadow: none !important;
         /* Performance */
         border-radius: 12px !important;
