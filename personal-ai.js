@@ -18,39 +18,107 @@ let personalAIData = JSON.parse(localStorage.getItem('taskforce_personal_ai')) |
 };
 
 // ChatGPT Integration
-async function callChatGPT(messages, options = {}) {
-    const apiKey = (typeof appSettings !== 'undefined' && appSettings.openaiApiKey) ? appSettings.openaiApiKey : null;
+// Google Gemini Integration (Instead of ChatGPT)
+async function callAI(messages, options = {}) {
+    // 1. Determine Provider & Key
+    let provider = 'openai'; // Default
+    let apiKey = null;
+
+    if (typeof app !== 'undefined' && app.state && app.state.aiConfig) {
+        provider = app.state.aiConfig.provider || 'openai';
+        apiKey = app.state.aiConfig.openaiKey || app.state.aiConfig.geminiKey;
+        // Specific keys based on provider
+        if (provider === 'openai') apiKey = app.state.aiConfig.openaiKey;
+        if (provider === 'gemini') apiKey = app.state.aiConfig.geminiKey;
+    }
+
+    // Fallback to settings
+    if (!apiKey && typeof appSettings !== 'undefined') {
+        apiKey = appSettings.openaiApiKey;
+    }
+
+    if (apiKey) apiKey = apiKey.trim(); // IMPORTANT: Trim whitespace
 
     if (!apiKey) {
-        throw new Error('Kein OpenAI API-Key gefunden. Bitte in den Einstellungen eintragen.');
+        throw new Error('Kein API-Key für die KI gefunden. Bitte in den Einstellungen eintragen.');
     }
 
     try {
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-                model: options.model || 'gpt-4o-mini',
-                messages: messages,
-                temperature: options.temperature || 0.7,
-                max_tokens: options.max_tokens || 1000
-            })
-        });
+        let response, data;
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error?.message || 'API Fehler');
+        // === OPENAI HANDLER ===
+        if (provider === 'openai') {
+            const url = 'https://api.openai.com/v1/chat/completions';
+            response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: messages,
+                    temperature: options.temperature || 0.7,
+                    max_tokens: options.max_tokens || 1000
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                const msg = errData.error?.message || `HTTP Fehler ${response.status}`;
+                throw new Error(`OpenAI: ${msg}`);
+            }
+
+            data = await response.json();
+            if (data.choices && data.choices.length > 0) {
+                return data.choices[0].message.content;
+            }
         }
 
-        const data = await response.json();
-        return data.choices[0].message.content;
+        // === GEMINI HANDLER ===
+        else if (provider === 'gemini' || provider === 'google') {
+            const prompt = messages.map(m => `[${m.role}]: ${m.content}`).join('\n');
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+            response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: options.temperature || 0.7,
+                        maxOutputTokens: options.max_tokens || 1000
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error?.message || 'Gemini API Fehler');
+            }
+
+            data = await response.json();
+            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                return data.candidates[0].content.parts[0].text;
+            }
+        }
+
+        // === GROK HANDLER (As OpenAI Compatible) ===
+        else if (provider === 'grok') {
+            // xAI logic similar to OpenAI usually
+            // Placeholder for now, can be expanded
+        }
+
+        throw new Error('Ungültige Antwort von der KI oder Provider nicht unterstützt.');
+
     } catch (err) {
-        console.error('ChatGPT API Error:', err);
+        console.error('AI API Error:', err);
         throw err;
     }
+}
+
+async function callChatGPT(messages, options) {
+    return callAI(messages, options);
 }
 
 // Initialize Personal AI Modal
@@ -84,7 +152,7 @@ function initPersonalAI() {
     }
 
     if (testAIBriefingBtn) {
-        testAIBriefingBtn.addEventListener('click', testAIBriefing);
+        testAIBriefingBtn.addEventListener('click', showAIBriefing);
     }
 
     // Age calculation on birthdate change
@@ -153,10 +221,13 @@ async function handleSendAiChat() {
     addChatMessageUI('ai', '<span class="loading-dots">... denkt nach ...</span>', thinkingId);
 
     try {
-        const systemPrompt = `Du bist ein hilfreicher persönlicher Assistent namens "Personal Advisor". 
-Dein Ziel ist es, den Nutzer optimal zu unterstützen. Sei freundlich, professionell und motivierend.
-Nutze die persönlichen Details des Nutzers: Name: ${personalAIData.name}, Job: ${personalAIData.job}, Hobbys: ${personalAIData.hobbies}.
-Du hast Zugriff auf alle Funktionen der App (Kalender, Notizen, etc.) - antworte so, als wärst du ein echter Butler.`;
+        const context = (typeof app !== 'undefined' && app.ai) ? app.ai.getSystemContext() : {};
+        const systemPrompt = `Du bist der "TaskForce Butler". Ein extrem höflicher, intelligenter und proaktiver persönlicher Assistent (wie Jarvis oder ein klassischer englischer Butler).
+Dein Ziel ist es, den Nutzer (${personalAIData.name || 'Master'}) optimal zu unterstützen.
+Nutzerdetails: Job: ${personalAIData.job}, Hobbys: ${personalAIData.hobbies}.
+Aktueller App-Zustand: ${JSON.stringify(context)}.
+Du bist jederzeit behilflich bei Terminen, Aufgaben und privatem/geschäftlichem Management.
+Antworte präzise, hilfreich und mit einer Prise Butler-Charme.`;
 
         const messages = [
             { role: 'system', content: systemPrompt },
@@ -164,7 +235,7 @@ Du hast Zugriff auf alle Funktionen der App (Kalender, Notizen, etc.) - antworte
             { role: 'user', content: text }
         ];
 
-        const response = await callChatGPT(messages);
+        const response = await callAI(messages);
 
         // Remove thinking and add real response
         const thinkingEl = document.getElementById(thinkingId);
@@ -323,34 +394,19 @@ function updateAIGreeting() {
     }
 }
 
-// Test AI Briefing
-async function testAIBriefing() {
-    const preview = document.getElementById('aiDashboardPreview');
-    const content = document.getElementById('aiDashboardContent');
-
-    if (preview) preview.classList.remove('hidden');
-    if (content) content.innerHTML = '<div style="text-align: center; padding: 20px;"><i class="loading-spinner"></i> Erstelle dein KI-Briefing mit ChatGPT...</div>';
-
-    try {
-        const briefing = await generateDailyBriefingAI();
-        if (content) content.innerHTML = briefing;
-
-        // Speak the briefing if voice is enabled
-        if (personalAIData.features.reminders && 'speechSynthesis' in window) {
-            const textToSpeak = briefing.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
-            if (typeof speakAI === 'function') speakAI(textToSpeak);
-            else {
-                const utterance = new SpeechSynthesisUtterance(textToSpeak);
-                utterance.lang = 'de-DE';
-                utterance.rate = 0.9;
-                window.speechSynthesis.speak(utterance);
-            }
-        }
-    } catch (err) {
-        if (content) content.innerHTML = `<div style="color: #ef4444; padding: 10px;">Fehler: ${err.message}</div>`;
-        if (typeof showToast === 'function') showToast('Briefing fehlgeschlagen: ' + err.message, 'error');
+// Show AI Briefing (Now redirects to the unified Local Host Briefing)
+async function showAIBriefing() {
+    console.log("Starting Local Morning Briefing...");
+    if (typeof window.readMorningBriefing === 'function') {
+        window.readMorningBriefing();
+    } else {
+        // Fallback if interactive-ai.js isn't loaded
+        alert("Das Briefing-Modul ist noch nicht geladen. Bitte Seite neu laden.");
     }
 }
+
+// Global accessor for the briefing button in HTML
+window.testAIBriefing = showAIBriefing;
 
 // Generate Daily Briefing using ChatGPT
 async function generateDailyBriefingAI() {
@@ -375,76 +431,84 @@ async function generateDailyBriefingAI() {
     }
 
 
-    // 2. Prepare Task Data (Separated)
+    // 2. Prepare Task Data (Separated) - Accessing app.state.tasks and app.state.events
     let appointmentsText = "Keine Termine für heute.";
     let todoText = "Keine offenen Aufgaben.";
 
-    if (typeof tasks !== 'undefined') {
-        const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0];
+    const sourceTasks = (typeof app !== 'undefined' && app.state && app.state.tasks) ? app.state.tasks : [];
+    const sourceEvents = (typeof app !== 'undefined' && app.state && app.state.events) ? app.state.events : [];
 
-        // Termine heute
-        const todaysAppointments = tasks.filter(t => !t.archived && !t.done && (
-            (t.deadline && t.deadline.startsWith(todayStr)) ||
-            (t.details && t.details['📅 Wann?'] && t.details['📅 Wann?'].startsWith(todayStr))
-        ));
+    // Termine heute (aus Events)
+    const todaysEvents = sourceEvents.filter(e => e.start && e.start.startsWith(todayStr));
 
-        if (todaysAppointments.length > 0) {
-            appointmentsText = todaysAppointments.map(t => {
-                const time = t.deadline ? new Date(t.deadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Ganztägig';
-                return `- ${time} Uhr: ${t.keyword}`;
-            }).join('\n');
-        }
+    // Termine heute (aus Tasks mit Deadline/Termin-Charakter)
+    const todaysTasks = sourceTasks.filter(t => !t.done && t.deadline && t.deadline.startsWith(todayStr));
 
-        // Andere offene To-Dos (ohne heutiges Datum oder überfällig, aber nicht erledigt)
-        const otherTodos = tasks.filter(t => !t.archived && !t.done && !todaysAppointments.includes(t));
+    if (todaysEvents.length > 0 || todaysTasks.length > 0) {
+        const evLines = todaysEvents.map(e => `- ${e.time || 'Ganztägig'} Uhr: ${e.title}`);
+        const taskLines = todaysTasks.map(t => `- (Aufgabe) ${t.title}`);
+        appointmentsText = [...evLines, ...taskLines].join('\n');
+    }
 
-        if (otherTodos.length > 0) {
-            // Top 5 wichtigste
-            todoText = otherTodos.slice(0, 5).map(t => `- ${t.keyword}`).join('\n');
-            if (otherTodos.length > 5) todoText += `\n... und ${otherTodos.length - 5} weitere.`;
-        }
+    // Andere offene To-Dos
+    const otherTodos = sourceTasks.filter(t => !t.done && (!t.deadline || !t.deadline.startsWith(todayStr)));
+
+    // New: Overdue Tasks ("Was vorher war/anstand")
+    const overdueTasks = sourceTasks.filter(t => !t.done && t.deadline && t.deadline < todayStr);
+    let overdueText = "Keine überfälligen Aufgaben.";
+    if (overdueTasks.length > 0) {
+        overdueText = overdueTasks.map(t => `- ⚠️ ${t.title} (Fällig seit: ${t.deadline})`).join('\n');
+    }
+
+    // Past Events (Yesterday Review)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = yesterday.toISOString().split('T')[0];
+    const yesterdayEvents = sourceEvents.filter(e => e.date === yStr);
+    let historyText = "Gestern keine Termine.";
+    if (yesterdayEvents.length > 0) {
+        historyText = yesterdayEvents.map(e => `- ${e.title}`).join('\n');
+    }
+
+    if (otherTodos.length > 0) {
+        // Top 10 wichtigste (Urgent first)
+        const sortedTodos = [...otherTodos].sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0));
+        todoText = sortedTodos.slice(0, 10).map(t => `- ${t.urgent ? '🔥 ' : ''}${t.title}`).join('\n');
+        if (sortedTodos.length > 10) todoText += `\n... und ${sortedTodos.length - 10} weitere.`;
     }
 
 
-    const systemPrompt = `Du bist ein hilfreicher persönlicher Assistent namens "Personal Advisor". 
-Dein Ziel ist es, den Nutzer optimal zu unterstützen. Sei freundlich, professionell und motivierend.
-Nutze die persönlichen Details des Nutzers, um die Antwort individuell zu gestalten.
-Schreibe in HTML-Format (für <div>-Container), nutze Emojis.`;
+    const systemPrompt = `Du bist der "TaskForce Butler". Ein extrem höflicher, intelligenter und proaktiver persönlicher Assistent ( Jarvis-Stil). 
+Dein Ziel ist es, dem Nutzer ein visuell ansprechendes und informatives Tages-Briefing zu geben.
+Strukturiere deine Antwort in HTML mit modernen CSS-Inline-Styles.
+Verwende Icons (Emojis), klare Sektionen und einen motivierenden Ton.
+Antworte auf Deutsch.`;
 
-    const userPrompt = `Erstelle ein kurzes, knackiges Tages-Briefing für mich.
+    const userPrompt = `Erstelle ein exzellentes, strukturiertes Tages-Briefing für mich.
 Meine Details:
 Name: ${personalAIData.name || 'Unbekannt'}
 Job: ${personalAIData.job || 'Nicht angegeben'}
 Hobbys: ${personalAIData.hobbies || 'Nicht angegeben'}
-Interessen: ${Object.entries(personalAIData.features).filter(([k, v]) => v).map(([k, v]) => k).join(', ')}
 
-Heute ist ${dayName}, der ${dateStr}.
+DATEN FÜR HEUTE:
+- TERMINE: ${appointmentsText}
+- ÜBERFÄLLIG (WICHTIG): ${overdueText}
+- OFFENE AUFGABEN: ${todoText}
+- RÜCKBLICK GESTERN: ${historyText}
+- WETTER: ${weatherInfo}
+- NACHRICHTEN: ${newsInfo}
 
-HIER SIND MEINE DATEN FÜR HEUTE:
+ANWEISUNG FÜR DIE STRUKTUR (HTML):
+1. **Begrüßung**: Nenne meinen Namen und gib einen kurzen (Jarvis-ähnlichen) Kommentar zur Tageszeit.
+2. **Wetter-Sektion**: Ein schöner kleiner Block mit Kleidungstipp.
+3. **Rückblick & Status**: Kurz erwähnen was gestern war (falls relevant) und Fokus auf ÜBERFÄLLIGES legen (höflich mahnen).
+4. **Agenda Heute**: Liste meine heutigen Termine klar auf. Wenn keine da sind, schlage vor, den Tag zur Planung oder Erholung zu nutzen.
+5. **Aufgaben-Fokus**: Nenne 1-2 wichtigste Aufgaben, auf die ich mich konzentrieren sollte.
+5. **Weltnachrichten**: 1-2 Sätze zu den aktuellen Schlagzeilen.
+6. **Abschluss**: Ein inspirierendes Zitat oder ein Butler-Spruch wie "Womit soll ich beginnen, Sir/Madame?".
 
-1. MEINE TERMINE HEUTE (Wichtig!):
-${appointmentsText}
-
-2. MEINE OFFENE TO-DO LISTE:
-${todoText}
-
-3. WETTER (LIVE): 
-${weatherInfo}
-
-4. NACHRICHTEN (LIVE): 
-${newsInfo}
-
-ANWEISUNG:
-Erstelle ein gesprochenes Briefing (Text, der vorgelesen wird).
-Struktur:
-1. Begrüßung (Nenne meinen Namen).
-2. Wetter & Kleidungstipp (Kurz).
-3. MEINE TERMINE: Sage mir konkret, was heute ansteht (Uhrzeit & Titel). Wenn keine Termine, sage das.
-4. MEINE TO-DOs: Erwähne kurz, dass ich X Aufgaben auf der Liste habe und nenne 1-2 Beispiele.
-5. NACHRICHTEN: Fasse 1-2 wichtige Schlagzeilen kurz zusammen.
-6. Motivation zum Schluss.
-
-Halte es natürlich und gesprächig, wie ein echter Assistent.`;
+Nutze <div style="...">, <strong>, <br> und Emojis für ein Premium-Layout.`;
 
     const messages = [
         { role: 'system', content: systemPrompt },
@@ -452,7 +516,7 @@ Halte es natürlich und gesprächig, wie ein echter Assistent.`;
     ];
 
     try {
-        return await callChatGPT(messages);
+        return await callAI(messages);
     } catch (err) {
         // Fallback to local briefing if API fails
         return generateDailyBriefing() + `<br><small style="color:#ef4444;">(API Fehler: ${err.message})</small><br><small style="color:gray;">(Lokales Backup-Briefing)</small>`;
@@ -578,56 +642,14 @@ function checkMorningBriefing() {
     const today = now.toDateString();
 
     if (currentTime === personalAIData.morningTime && lastBriefing !== today) {
-        showMorningBriefing();
+        showAIBriefing();
         localStorage.setItem('taskforce_last_briefing', today);
     }
 }
 
 // Show Morning Briefing
 async function showMorningBriefing() {
-    let briefing = '';
-
-    if (typeof appSettings !== 'undefined' && appSettings.openaiApiKey) {
-        briefing = await generateDailyBriefingAI();
-    } else {
-        briefing = generateDailyBriefing();
-    }
-
-    // Create a notification-style modal
-    const briefingModal = document.createElement('div');
-    briefingModal.className = 'modal';
-    briefingModal.innerHTML = `
-        <div class="modal-content" style="max-width: 500px;">
-            <div class="modal-header">
-                <h2><i data-lucide="sun"></i> Dein Tages-Briefing</h2>
-                <button class="modal-close-icon" onclick="this.closest('.modal').remove()">✕</button>
-            </div>
-            <div class="modal-body">
-                ${briefing}
-            </div>
-            <div class="modal-footer">
-                <button class="btn-primary" onclick="this.closest('.modal').remove()">Verstanden</button>
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(briefingModal);
-
-    // Initialize Lucide icons
-    if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-    }
-
-    // Speak the briefing
-    const textToSpeak = briefing.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-    if (typeof speakAI === 'function') {
-        speakAI(textToSpeak);
-    } else if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(textToSpeak);
-        utterance.lang = 'de-DE';
-        utterance.rate = 0.9;
-        window.speechSynthesis.speak(utterance);
-    }
+    showAIBriefing();
 }
 
 // Initialize when DOM is ready

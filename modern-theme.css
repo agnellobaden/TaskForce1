@@ -529,6 +529,13 @@ h4 {
     .dashboard-grid:not(.single-column-mode) {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    /* Modal für Tablets optimieren */
+    #modalContent {
+        width: 90% !important;
+        max-height: 80vh !important;
+        padding: 20px !important;
+    }
 }
 
 /* Small Mobile Devices (Up to 600px) */
@@ -564,6 +571,29 @@ h4 {
 
     .clock-large {
         font-size: 2.8rem !important;
+    }
+
+    /* Modal für Mobile optimieren - WICHTIG */
+    #modalContent {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 90vh !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 16px !important;
+        padding-bottom: 100px !important;
+        border-radius: 20px 20px 0 0 !important;
+        overflow-y: scroll !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    /* Briefing-Karten auf Mobile kleiner machen */
+    #modalContent h4 {
+        font-size: 1rem !important;
+    }
+
+    #modalContent .card {
+        padding: 12px !important;
     }
 }
 
@@ -721,8 +751,29 @@ h4 {
 /* Modal adjustments for mobile */
 #modalContent {
     width: 95% !important;
-    max-height: 90vh;
+    max-width: 800px;
+    max-height: 85vh;
     overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Bessere Scrollbar für Modals */
+#modalContent::-webkit-scrollbar {
+    width: 8px;
+}
+
+#modalContent::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+#modalContent::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+}
+
+#modalContent::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
 }
 
 /* Button adjustments for mobile */
@@ -732,8 +783,19 @@ h4 {
 }
 
 .btn-small {
-    width: 28px;
-    height: 28px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+
+.btn-small i {
+    width: 20px;
+    height: 20px;
 }
 
 /* Utility Classes */
@@ -1136,25 +1198,30 @@ button {
 }
 
 /* === URGENCY BLINKING === */
+/* === URGENCY BLINKING === */
 @keyframes blink-urgent {
 
     0%,
     100% {
-        border-color: var(--turquoise);
-        box-shadow: 0 0 10px var(--turquoise);
-        background-color: rgba(45, 212, 191, 0.05);
+        border-color: #ef4444;
+        box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+        background-color: rgba(239, 68, 68, 0.1);
+        transform: scale(1);
     }
 
     50% {
         border-color: #ffffff;
-        box-shadow: 0 0 20px var(--turquoise);
-        background-color: rgba(45, 212, 191, 0.2);
+        box-shadow: 0 0 30px rgba(239, 68, 68, 0.9);
+        background-color: rgba(239, 68, 68, 0.3);
+        transform: scale(1.02);
     }
 }
 
 .blink-urgent {
-    animation: blink-urgent 1.5s ease-in-out infinite !important;
-    border: 1px solid var(--turquoise) !important;
+    animation: blink-urgent 1s ease-in-out infinite !important;
+    border: 4px solid #ef4444 !important;
+    /* Fetter Rahmen */
+    z-index: 100 !important;
 }
 
 /* Urgent Button Toggle */

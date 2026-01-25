@@ -20,10 +20,10 @@ const app = {
             dashboardMode: 'business'
         },
         aiConfig: {
-            provider: 'openai',
-            openaiKey: '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',
+            provider: 'gemini',
+            openaiKey: '',
             grokKey: '',
-            geminiKey: ''
+            geminiKey: 'AIzaSyBuG6uqerR9w5vxdaMTxJX3x0qwuuf81lc'
         }
     },
 
@@ -40,6 +40,13 @@ const app = {
             if (!this.state.archives) this.state.archives = []; // Initialize archives if missing
 
             // Check Login Status & Enforce Protection
+
+            // Ensure AI Config exists & Update with user provided key
+            if (!this.state.aiConfig) this.state.aiConfig = {};
+            this.state.aiConfig.provider = 'gemini';
+            this.state.aiConfig.geminiKey = 'AIzaSyBuG6uqerR9w5vxdaMTxJX3x0qwuuf81lc';
+            this.saveState();
+
             if (!this.state.user.isLoggedIn) {
                 const loginOverlay = document.getElementById('loginOverlay');
                 if (loginOverlay) {
@@ -384,6 +391,127 @@ const app = {
                 location.reload();
             }
         },
+
+
+        // --- GOOGLE SIGN-IN HANDLER ---
+        // --- GOOGLE SIGN-IN HANDLER (Firebase) ---
+        async loginWithGoogle(btn) {
+            // CHECK: FILE PROTOCOL
+            if (window.location.protocol === 'file:') {
+                alert("⚠️ Google Login funktioniert nicht, wenn die Datei direkt geöffnet ist (file://).\n\nBitte nutze einen lokalen Server (Localhost) oder lade die App auf einen Webserver hoch.");
+                return;
+            }
+
+            // Visual feedback
+            const originalHtml = btn ? btn.innerHTML : null;
+            if (btn) {
+                btn.style.opacity = '0.7';
+                btn.style.pointerEvents = 'none';
+                btn.innerHTML = '<span>Lade Google...</span>';
+            }
+
+            // Ensure Firebase is active
+            if (!window.firebase || !firebase.auth) {
+                // Try to init if cloud config exists
+                if (app.cloud && app.cloud.init) app.cloud.init();
+
+                // Still not there? Wait a moment or alert
+                await new Promise(r => setTimeout(r, 500));
+
+                if (!window.firebase || !firebase.auth) {
+                    if (btn) { btn.innerHTML = originalHtml; btn.style.opacity = '1'; btn.style.pointerEvents = 'all'; }
+                    alert("Firebase Auth ist nicht geladen. Bitte Seite neu laden oder Internetverbindung prüfen.");
+                    return;
+                }
+            }
+
+            const provider = new firebase.auth.GoogleAuthProvider();
+            // Google auth options
+            provider.setCustomParameters({ prompt: 'select_account' });
+
+            try {
+                const result = await firebase.auth().signInWithPopup(provider);
+                const user = result.user;
+                console.log("Firebase Google User SUCCESS:", user);
+
+                // Success - normalize data
+                this.finalizeLogin({
+                    name: user.displayName || "Google User",
+                    email: user.email,
+                    picture: user.photoURL,
+                    googleId: user.uid
+                });
+
+            } catch (error) {
+                console.error("Firebase Login Error", error);
+                if (btn) { btn.innerHTML = originalHtml; btn.style.opacity = '1'; btn.style.pointerEvents = 'all'; }
+
+                let msg = error.message;
+                if (error.code === 'auth/unauthorized-domain') {
+                    msg = "Domain nicht autorisiert. Bitte füge 'localhost' (oder deine Domain) in der Firebase Console unter Authentication -> Settings -> Authorized Domains hinzu.";
+                } else if (error.code === 'auth/popup-closed-by-user') {
+                    msg = "Anmeldung abgebrochen (Fenster geschlossen).";
+                } else if (error.code === 'auth/operation-not-allowed') {
+                    msg = "Google Login ist in Firebase nicht aktiviert. Bitte im Firebase Dashboard unter Authentication -> Sign-in method aktivieren.";
+                }
+
+                alert(`Login Fehler (${error.code}):\n${msg}`);
+            }
+        },
+
+        // Helper to complete login
+        finalizeLogin(data) {
+            // Register/Login Logic
+            app.state.user.isLoggedIn = true;
+            app.state.user.name = data.name;
+            app.state.user.email = data.email;
+            app.state.user.picture = data.picture;
+            app.state.user.googleId = data.googleId;
+
+            // Ensure teamName exists for Sync. 
+            // Default to name or email prefix if not set.
+            if (!app.state.user.teamName) {
+                app.state.user.teamName = data.name.split(' ')[0] || data.email.split('@')[0];
+            }
+
+            app.saveState();
+
+            // Hide Overlay
+            const overlay = document.getElementById('loginOverlay');
+            if (overlay) overlay.classList.add('hidden');
+
+            // Force Cloud Re-Init to start sync with new user
+            if (app.cloud && app.cloud.init) app.cloud.init();
+
+            // Welcome
+            if (typeof showToast === 'function') showToast(`Willkommen, ${app.state.user.name}!`, 'success');
+            app.user.updateHeader();
+
+            // Reload UI
+            app.renderDashboard();
+        },
+
+        // Legacy/Direct GIS Handler (Optional Backup)
+        handleGoogleLogin(response) {
+            try {
+                const base64Url = response.credential.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function (c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+
+                const payload = JSON.parse(jsonPayload);
+                this.finalizeLogin({
+                    name: payload.name || payload.given_name,
+                    email: payload.email,
+                    picture: payload.picture,
+                    googleId: payload.sub
+                });
+            } catch (e) {
+                console.error("GIS Login Error", e);
+            }
+        },
+
         submit() {
             const name = document.getElementById('authName').value.trim();
             const pass = document.getElementById('authPass').value.trim();
@@ -393,7 +521,7 @@ const app = {
             if (!name || !pass) { alert("Bitte Name und Passwort eingeben."); return; }
 
             if (this.mode === 'register') {
-                if (pass !== passRep) { alert("Die Passwörter stimmen nicht überein! ❌"); return; }
+                if (pass !== passRep) { alert("Die Passwörter stimmen nicht überein! âŒ"); return; }
 
                 // Save new user (Team Name set to empty initially or default)
                 app.state.user = {
@@ -616,6 +744,7 @@ const app = {
             app.settings.render();
             app.settings.initPayPal();
         }
+        if (page === 'archive') app.archive.render();
     },
 
     // --- SHOPPING MODULE (NEW) ---
@@ -667,7 +796,7 @@ const app = {
                         
                         <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
                             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                                <span style="font-weight:600; color:white; flex:1; overflow:hidden; white-space:normal; word-break:break-word; padding-right:4px; ${t.done ? 'text-decoration:line-through; color:var(--text-muted);' : ''}">
+                                <span style="font-weight:600; color:white; flex:1; white-space:normal; word-break:break-word; line-height:1.4; ${t.done ? 'text-decoration:line-through; color:var(--text-muted);' : ''}">
                                     ${t.title}
                                 </span>
                                 ${t.urgent && !t.done ? `<span style="display:inline-block; padding:2px 8px; background:rgba(239, 68, 68, 0.3); color:#ff6b6b; border-radius:6px; font-size:0.65rem; font-weight:700;">🔥 Dringend</span>` : ''}
@@ -675,13 +804,13 @@ const app = {
                             </div>
                         </div>
 
-                        <div style="flex-shrink:0; display:flex; gap:6px; margin-left:auto; opacity:1;">
-                            <button onclick="event.stopPropagation(); app.shopping.toggleUrgency(${t.id}); app.shopping.render();" title="Dringend" style="flex-shrink:0; background:${t.urgent ? 'rgba(239, 68, 68, 0.4)' : 'rgba(255,255,255,0.08)'}; border:1px solid ${t.urgent ? 'rgba(239, 68, 68, 0.6)' : 'rgba(255,255,255,0.2)'}; color:${t.urgent ? '#ff6b6b' : 'white'}; width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;">
-                                <i data-lucide="flame" size="16"></i>
+                        <div style="flex-shrink:0; display:flex; gap:8px; margin-left:auto; opacity:1;">
+                            <button onclick="event.stopPropagation(); app.shopping.toggleUrgency(${t.id}); app.shopping.render();" title="Dringend" style="flex-shrink:0; background:${t.urgent ? 'rgba(239, 68, 68, 0.5)' : 'rgba(255,255,255,0.15)'}; border:2px solid ${t.urgent ? 'rgba(239, 68, 68, 0.8)' : 'rgba(255,255,255,0.3)'}; color:${t.urgent ? '#fff' : 'white'}; min-width:40px; min-height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; transition:all 0.2s; box-shadow:${t.urgent ? '0 0 10px rgba(239, 68, 68, 0.4)' : 'none'};">
+                                <i data-lucide="flame" size="20"></i>
                             </button>
 
-                            <button onclick="app.shopping.delete(${t.id})" title="Löschen" style="flex-shrink:0; background:rgba(239, 68, 68, 0.15); border:1px solid rgba(239, 68, 68, 0.3); color:#fca5a5; width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;">
-                                <i data-lucide="trash-2" size="16"></i>
+                            <button onclick="app.shopping.delete(${t.id})" title="Löschen" style="flex-shrink:0; background:rgba(239, 68, 68, 0.2); border:2px solid rgba(239, 68, 68, 0.4); color:#ff6b6b; min-width:40px; min-height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0; transition:all 0.2s;">
+                                <i data-lucide="trash-2" size="20"></i>
                             </button>
                         </div>
                     </div>`).join('')}
@@ -784,6 +913,55 @@ const app = {
         }
     },
 
+    // --- ARCHIVE MODULE ---
+    archive: {
+        render() {
+            const container = document.getElementById('archiveList');
+            if (!container) return;
+
+            if (!app.state.archives || app.state.archives.length === 0) {
+                container.innerHTML = '<div class="text-muted text-center" style="padding:40px;">Archiv ist leer.</div>';
+                return;
+            }
+
+            // Sort by archivedAt descending
+            const sorted = [...app.state.archives].sort((a, b) => new Date(b.archivedAt) - new Date(a.archivedAt));
+
+            container.innerHTML = sorted.map((item, index) => {
+                const date = new Date(item.archivedAt).toLocaleString('de-DE');
+                let icon = 'archive';
+                let color = 'var(--text-muted)';
+                let typeLabel = 'Eintrag';
+
+                if (item.type === 'event_expired') { icon = 'calendar-clock'; color = 'var(--text-muted)'; typeLabel = 'Termin (Vergangen)'; }
+                else if (item.type === 'event_deleted') { icon = 'calendar-x'; color = '#fca5a5'; typeLabel = 'Termin (Gelöscht)'; }
+                else if (item.type === 'shopping_deleted') { icon = 'shopping-cart'; color = '#fca5a5'; typeLabel = 'Einkauf (Gelöscht)'; }
+                else if (item.type === 'todo_completed') { icon = 'check-circle'; color = '#86efac'; typeLabel = 'To-Do (Erledigt)'; }
+
+                // Determine Title
+                const title = item.title || item.name || 'Unbenannt';
+                const originalDate = item.start ? new Date(item.start).toLocaleString('de-DE') : '';
+
+                return `
+                <div class="card" style="margin-bottom:10px; display:flex; align-items:center; gap:12px; padding:12px; opacity:0.8;">
+                    <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:50%; color:${color};">
+                        <i data-lucide="${icon}" size="18"></i>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-weight:600; font-size:0.95rem;">${title}</div>
+                        <div class="text-xs text-muted">
+                            ${typeLabel} • ${date}
+                            ${originalDate ? `<br>Datum: ${originalDate}` : ''}
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+            if (window.lucide) lucide.createIcons();
+        }
+    },
+
     // --- CALENDAR & EVENTS ---
     calendar: {
         currentViewDate: new Date(),
@@ -838,7 +1016,7 @@ const app = {
 
                 // Validierung: Ungültiges Datum/Zeit
                 if (isNaN(start.getTime())) {
-                    alert("❌ Ungültiges Datum/Zeit\n\nBitte gib ein gültiges Datum und eine gültige Uhrzeit ein.");
+                    alert("âŒ Ungültiges Datum/Zeit\n\nBitte gib ein gültiges Datum und eine gültige Uhrzeit ein.");
                     return;
                 }
 
@@ -855,7 +1033,7 @@ const app = {
 
                 if (conflictingEvent && !app.editingId) {
                     const confirmAdd = confirm(
-                        `⚠️ Terminkonflikt erkannt!\n\n` +
+                        `âš ï¸ Terminkonflikt erkannt!\n\n` +
                         `Es existiert bereits ein Termin:\n` +
                         `"${conflictingEvent.title}"\n\n` +
                         `Möchtest du diesen Termin trotzdem hinzufügen?`
@@ -870,7 +1048,7 @@ const app = {
                     const dateStr = start.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
                     alert(
-                        `⏰ Termin liegt in der Vergangenheit!\n\n` +
+                        `â° Termin liegt in der Vergangenheit!\n\n` +
                         `Gewählte Zeit: ${dateStr} um ${timeStr}\n` +
                         `Das war vor ${diffMinutes} Minuten.\n\n` +
                         `Bitte wähle eine Zeit in der Zukunft.`
@@ -989,8 +1167,8 @@ const app = {
                         }
 
                         app.notifications.send(
-                            `⏰ Termin in ${timeText}`,
-                            `${e.title} um ${eventTime}${e.location ? ' • ' + e.location : ''}`,
+                            `â° Termin in ${timeText}`,
+                            `${e.title} um ${eventTime}${e.location ? ' â€¢ ' + e.location : ''}`,
                             true
                         );
 
@@ -1016,7 +1194,8 @@ const app = {
             const now = new Date();
             const hasUrgent = app.state.events.some(e => {
                 const diffMins = (new Date(e.start) - now) / 1000 / 60;
-                return (diffMins > -15 && diffMins < 60) || e.urgent;
+                // Blinking window: 2 Hours (120 mins) or Urgent
+                return (diffMins > 0 && diffMins <= 120) || e.urgent;
             });
 
             const dashCard = document.getElementById('dashboardEventsCard');
@@ -1031,6 +1210,13 @@ const app = {
 
                     // Add new animation class
                     dashCard.classList.add(`blink-${style}`);
+                    // Force extreme blink if very close (< 60 mins)
+                    if (app.state.events.some(e => {
+                        const diffMins = (new Date(e.start) - now) / 1000 / 60;
+                        return (diffMins > 0 && diffMins < 60) || e.urgent;
+                    })) {
+                        dashCard.classList.add('blink-extreme');
+                    }
                 } else {
                     dashCard.classList.remove('appointment-imminent', 'blink-standard', 'blink-flash', 'blink-neon', 'blink-shake', 'blink-extreme', 'blink-rainbow');
                 }
@@ -1038,11 +1224,9 @@ const app = {
         },
         archiveOldEvents() {
             const now = new Date();
-            // User requested ALL past events -> Buffer reduced to 0 or even negative to be strict?
+            // User request: "alle vergangen termine" -> Strict archiving (0 buffer)
             // "Vergangen" means end time is passed. If we don't track duration, assumes start time.
-            // Let's set it to 60 Minutes (1 hour) to be safe for running meetings, or 0 if they want it GONE.
-            // User request: "alle vergangen termine" -> Let's use 30 minutes past start as a compromise for "finished" short meetings.
-            const archiveThreshold = new Date(now.getTime() - (30 * 60 * 1000)); // 30 Minutes ago
+            const archiveThreshold = new Date(now.getTime() - (0 * 60 * 1000)); // 0 Minutes ago (Strict)
 
             // Archive all events that started MORE than 30 mins ago
             const toArchive = app.state.events.filter(e => new Date(e.start) < archiveThreshold);
@@ -1294,7 +1478,7 @@ const app = {
                             <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 0.8rem; color: var(--text-muted);">
                                 <div style="display: flex; align-items: center; gap: 4px;">
                                     <div style="text-transform: uppercase; font-size: 0.7rem; font-weight: 600; opacity: 0.8;">${dateLabel}</div>
-                                    ${e.location ? `<span style="opacity: 0.5;">•</span> <div style="display: flex; align-items: center; gap: 4px; word-break: break-word; white-space: normal;">${e.location}</div>` : ''}
+                                    ${e.location ? `<span style="opacity: 0.5;">â€¢</span> <div style="display: flex; align-items: center; gap: 4px; word-break: break-word; white-space: normal;">${e.location}</div>` : ''}
                                 </div>
                                 
                                 ${(e.location || e.phone || e.email) ? `<div style="flex: 1; min-width: 10px;"></div>` : ''}
@@ -1460,7 +1644,7 @@ const app = {
                             onmouseover="this.style.transform='scale(1.1)'; this.style.background='rgba(59, 130, 246, 0.2)';" 
                             onmouseout="this.style.transform='scale(1)'; this.style.background='rgba(59, 130, 246, 0.1)';"
                             title="Klicken um 0.25L hinzuzufügen">
-                        💧
+                        ðŸ’§
                     </button>
                     <div style="width:100%; background:rgba(255,255,255,0.1); height:8px; border-radius:4px; overflow:hidden;">
                         <div style="width:${waterPercent}%; height:100%; background:linear-gradient(90deg, #3b82f6, #06b6d4); transition:width 0.5s ease;"></div>
@@ -1476,7 +1660,7 @@ const app = {
         if (statusText) {
             const openTasks = app.state.tasks.filter(t => !t.done).length;
             const urgentTasks = app.state.tasks.filter(t => !t.done && t.urgent).length;
-            statusText.innerHTML = `<span class="text-primary">${openTasks} Offen</span> • <span class="text-danger">${urgentTasks} Dringend</span>`;
+            statusText.innerHTML = `<span class="text-primary">${openTasks} Offen</span> â€¢ <span class="text-danger">${urgentTasks} Dringend</span>`;
         }
 
         // --- DASHBOARD CARD URGENCY BLINKING & STYLING ---
@@ -1522,16 +1706,16 @@ const app = {
         });
         toggleCardBlink('dashboardCommunicationCard', hasImportantCall);
 
-        // 3b. Events (Urgent or Approaching within 1h)
+        // 3b. Events (Urgent or Approaching within 2h)
         const nowMsEvents = Date.now();
-        const oneHourEvents = 60 * 60 * 1000;
+        const twoHourEvents = 2 * 60 * 60 * 1000;
         const hasUrgentEvt = (app.state.events || []).some(e => {
             // Urgent flag and not too old (e.g. up to 1h past start)
-            if (e.urgent && new Date(e.start).getTime() > nowMsEvents - oneHourEvents) return true;
+            if (e.urgent && new Date(e.start).getTime() > nowMsEvents - twoHourEvents) return true;
 
-            // Approaching within 1 hour
+            // Approaching within 2 hour
             const diff = new Date(e.start).getTime() - nowMsEvents;
-            return diff > 0 && diff < oneHourEvents;
+            return diff > 0 && diff < twoHourEvents;
         });
         toggleCardBlink('dashboardEventsCard', hasUrgentEvt);
 
@@ -1613,7 +1797,7 @@ const app = {
                         <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:8px 12px; border-radius:8px; border:1px solid rgba(59, 130, 246, 0.2);">
                             <div>
                                 <div style="font-weight:bold; font-size:1rem;">${a.time}</div>
-                                <div class="text-xs text-muted">${a.title || 'Wecker'} • ${daysStr}</div>
+                                <div class="text-xs text-muted">${a.title || 'Wecker'} â€¢ ${daysStr}</div>
                             </div>
                             <i data-lucide="bell" size="14" class="text-primary"></i>
                         </div>
@@ -1702,7 +1886,7 @@ const app = {
                             // Existing UI enforces days selection usually (Täglich check).
                             // Let's stick to existing logic: must start with days.
                             if (alarmDays.length === 0 || alarmDays.includes(currentDay)) {
-                                console.log(`⏰ WECKER: ${alarm.title}`);
+                                console.log(`â° WECKER: ${alarm.title}`);
                                 app.alarms.trigger(alarm.title || 'Wecker', alarm.sound);
                             }
                         }
@@ -1718,10 +1902,10 @@ const app = {
                         const nowDayStr = now.toLocaleDateString('de-DE');
 
                         if (evtTimeStr === t && evtDateStr === nowDayStr) {
-                            console.log(`📅 TERMIN ALARM: ${e.title}`);
+                            console.log(`📍… TERMIN ALARM: ${e.title}`);
                             // Digital sound is louder/more distinct
                             const sound = e.urgent ? 'digital' : 'melody';
-                            app.alarms.trigger(`${e.urgent ? '🔥 DRINGEND: ' : '📅 '}${e.title}`, sound);
+                            app.alarms.trigger(`${e.urgent ? '🔥 DRINGEND: ' : '📍… '}${e.title}`, sound);
                         }
                     });
                 }
@@ -1948,7 +2132,7 @@ const app = {
                     this.send("🔥 Wichtiger Termin in 15 Min!", `${e.title} um ${start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, true);
                 }
                 if (diffMins >= -1 && diffMins <= 0) {
-                    this.send("🔔 Termin Jetzt!", `${e.title} beginnt jetzt.`, true);
+                    this.send("ðŸ”” Termin Jetzt!", `${e.title} beginnt jetzt.`, true);
                 }
             });
 
@@ -2062,7 +2246,7 @@ const app = {
             if (loc) {
                 this.currentLocation = loc;
                 const statusEl = document.getElementById('currentLocationText');
-                if (statusEl) statusEl.textContent = "📍 " + loc;
+                if (statusEl) statusEl.textContent = "📍 " + loc;
                 this.renderRoute();
             }
         },
@@ -2522,8 +2706,8 @@ const app = {
                             <div style="background:rgba(59, 130, 246, 0.1); color:var(--primary); padding:4px 8px; border-radius:6px; font-size:0.85rem; font-weight:bold; min-width:60px; text-align:center;">${tText}<br><span style="font-size:0.7rem; font-weight:normal;">${dText}</span></div>
                             <div>
                                 <div style="font-weight:600; line-height:1.2;">${e.title}</div>
-                                ${e.location ? `<div style="font-size:0.8rem; color:var(--text-muted); display:flex; align-items:center; gap:4px; margin-top:2px;">📍 ${e.location}</div>` : ''}
-                                ${e.notes ? `<div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">📝 ${e.notes}</div>` : ''}
+                                ${e.location ? `<div style="font-size:0.8rem; color:var(--text-muted); display:flex; align-items:center; gap:4px; margin-top:2px;">📍 ${e.location}</div>` : ''}
+                                ${e.notes ? `<div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">📍 ${e.notes}</div>` : ''}
                             </div>
                         </li>`;
                         speech += `Am ${d.toLocaleDateString('de-DE', { weekday: 'long' })} um ${tText} Uhr: ${e.title}. `;
@@ -2590,7 +2774,7 @@ const app = {
                                     <div style="font-weight:bold;">${waterToday.toFixed(1)} / ${waterGoal} L</div>
                                 </div>
                             </div>
-                            <div style="font-size:1.2rem;">${waterToday >= waterGoal ? '✅' : '⏳'}</div>
+                            <div style="font-size:1.2rem;">${waterToday >= waterGoal ? '✅' : 'â³'}</div>
                         </div>`;
 
                 speech += `Wasserstand: ${waterToday.toFixed(1)} von ${waterGoal} Litern. `;
@@ -2983,6 +3167,28 @@ const app = {
                 this.render();
             }
         },
+        edit(id) {
+            const h = app.state.habits.find(x => x.id === id);
+            if (!h) return;
+
+            const name = prompt("Name der Gewohnheit:", h.name);
+            if (name) {
+                const goal = parseInt(prompt("Ziel (Tage):", h.goal || 30));
+                h.name = name;
+                h.goal = goal;
+                app.saveState();
+                this.render();
+                app.renderDashboard();
+            }
+        },
+        delete(id) {
+            if (confirm("Gewohnheit wirklich löschen?")) {
+                app.state.habits = app.state.habits.filter(h => h.id !== id);
+                app.saveState();
+                this.render();
+                app.renderDashboard();
+            }
+        },
         render() {
             const g = document.getElementById('habitsGrid');
             if (!g) return;
@@ -2992,13 +3198,17 @@ const app = {
                 const daysString = h.days && h.days.length > 0 ? h.days.map(d => daysLabels[d]).join(', ') : 'Täglich';
 
                 return `
-                    <div class="card ${h.urgent ? 'blink-urgent' : ''}">
+                    <div class="card ${h.urgent ? 'blink-urgent' : ''}" style="position:relative;">
                         <div class="card-header">
                             <div>
                                 <span class="card-title">${h.name}</span>
                                 <div class="text-xs text-muted">${daysString} ${h.time ? '• ' + h.time : ''}</div>
                             </div>
-                            <button class="btn-toggle-urgent ${h.urgent ? 'is-urgent' : ''}" onclick="event.stopPropagation(); app.habits.toggleUrgency(${h.id})"><i data-lucide="flame" size="14"></i></button>
+                            <div style="display:flex; gap:4px;">
+                                <button class="btn-toggle-urgent ${h.urgent ? 'is-urgent' : ''}" onclick="event.stopPropagation(); app.habits.toggleUrgency(${h.id})"><i data-lucide="flame" size="14"></i></button>
+                                <button class="btn-small" onclick="event.stopPropagation(); app.habits.edit(${h.id})" title="Bearbeiten"><i data-lucide="pencil" size="14"></i></button>
+                                <button class="btn-small" onclick="event.stopPropagation(); app.habits.delete(${h.id})" title="Löschen" style="color:var(--danger);"><i data-lucide="trash" size="14"></i></button>
+                            </div>
                         </div>
                         <div class="card-value">${h.streak} 🔥</div>
                         <div class="text-muted text-sm">Ziel: ${h.goal || 30} Tage</div>
@@ -3105,12 +3315,12 @@ const app = {
 
             if (method === 'popup' || method === 'all') {
                 if (Notification.permission === 'granted') {
-                    new Notification('⚖️ Wiegen nicht vergessen!', {
+                    new Notification('âš–ï¸ Wiegen nicht vergessen!', {
                         body: 'Zeit für deine wöchentliche Gewichtskontrolle!',
-                        icon: '⚖️'
+                        icon: 'âš–ï¸'
                     });
                 } else {
-                    alert('⚖️ Wiegen nicht vergessen! Zeit für deine wöchentliche Gewichtskontrolle!');
+                    alert('âš–ï¸ Wiegen nicht vergessen! Zeit für deine wöchentliche Gewichtskontrolle!');
                 }
             }
 
@@ -3167,12 +3377,12 @@ const app = {
 
             if (method === 'popup' || method === 'all') {
                 if (Notification.permission === 'granted') {
-                    new Notification('💧 Trink Wasser!', {
+                    new Notification('ðŸ’§ Trink Wasser!', {
                         body: 'Es ist Zeit, etwas zu trinken!',
-                        icon: '💧'
+                        icon: 'ðŸ’§'
                     });
                 } else {
-                    alert('💧 Trink Wasser! Es ist Zeit, etwas zu trinken!');
+                    alert('ðŸ’§ Trink Wasser! Es ist Zeit, etwas zu trinken!');
                 }
             }
 
@@ -3405,10 +3615,10 @@ const app = {
                 } else {
                     historyEl.innerHTML = recent.map(d => {
                         const icons = {
-                            water: '💧',
-                            steps: '👣',
-                            sleep: '😴',
-                            weight: '⚖️'
+                            water: 'ðŸ’§',
+                            steps: 'ðŸ‘£',
+                            sleep: 'ðŸ˜´',
+                            weight: 'âš–ï¸'
                         };
                         const labels = {
                             water: 'Wasser',
@@ -3429,7 +3639,7 @@ const app = {
                                     <div style="display:flex; align-items:center; gap:8px;">
                                         <button class="btn-toggle-urgent ${d.urgent ? 'is-urgent' : ''}" onclick="app.health.toggleUrgency(${d.id})" title="Wichtig"><i data-lucide="flame" size="14"></i></button>
                                         <span>${icons[d.type]} ${labels[d.type]}</span>
-                                        ${d.reminder ? '<span class="text-sm" style="background:var(--primary);padding:2px 6px;border-radius:4px;font-size:0.7rem;">🔔</span>' : ''}
+                                        ${d.reminder ? '<span class="text-sm" style="background:var(--primary);padding:2px 6px;border-radius:4px;font-size:0.7rem;">ðŸ””</span>' : ''}
                                     </div>
                                     <div class="text-muted text-sm">${new Date(d.timestamp).toLocaleString('de-DE')}</div>
                                 </div>
@@ -3460,7 +3670,7 @@ const app = {
         addXP(a) {
             app.state.xp += a;
             const l = Math.floor(app.state.xp / 1000) + 1;
-            if (l > app.state.level) { alert("🎉 LEVEL UP! " + l); this.triggerConfetti(); }
+            if (l > app.state.level) { alert("ðŸŽ‰ LEVEL UP! " + l); this.triggerConfetti(); }
             app.state.level = l;
             app.saveState();
             this.updateUI();
@@ -3754,33 +3964,16 @@ const app = {
     },
     comms: {
         call() {
-            if (app.state.contacts && app.state.contacts.length > 0) {
-                const recent = app.state.contacts[app.state.contacts.length - 1];
-                if (confirm(`${recent.name} anrufen?`)) {
-                    app.contacts.call(recent.phone);
-                }
-            } else {
-                app.navigateTo('contacts');
-                alert("Keine Kontakte vorhanden. Bitte füge einen Kontakt hinzu.");
-            }
+            app.navigateTo('contacts');
+            if (app.notifications) app.notifications.send("📍ž Anruf starten", "Wähle einen Kontakt aus der Liste.");
         },
         whatsapp() {
-            if (app.state.contacts && app.state.contacts.length > 0) {
-                const recent = app.state.contacts[app.state.contacts.length - 1];
-                app.contacts.whatsapp(recent.phone);
-            } else {
-                app.navigateTo('contacts');
-                alert("Keine Kontakte für WhatsApp gefunden.");
-            }
+            app.navigateTo('contacts');
+            if (app.notifications) app.notifications.send("ðŸ’¬ WhatsApp", "Wähle einen Kontakt für eine Nachricht.");
         },
         email() {
-            if (app.state.contacts && app.state.contacts.length > 0) {
-                const recent = app.state.contacts[app.state.contacts.length - 1];
-                app.contacts.mail(recent.email);
-            } else {
-                app.navigateTo('contacts');
-                alert("Keine Kontakte für E-Mail gefunden.");
-            }
+            app.navigateTo('contacts');
+            if (app.notifications) app.notifications.send("📍§ E-Mail", "Wähle einen Kontakt zum Schreiben.");
         }
     },
     nightstand: {
@@ -3821,7 +4014,7 @@ const app = {
             if (app.activeAlarm) return; // Already ringing
 
             // --- SYSTEM NOTIFICATION (For background/closed app) ---
-            app.notifications.send(`⏰ ${title}`, "Es ist Zeit! Tippe hier zum Stoppen.", true);
+            app.notifications.send(`â° ${title}`, "Es ist Zeit! Tippe hier zum Stoppen.", true);
 
             // 1. Sounds
             const sounds = {
@@ -3880,7 +4073,7 @@ const app = {
             overlay.style.backdropFilter = 'blur(10px)';
 
             overlay.innerHTML = `
-                <div style="font-size: 4rem; margin-bottom: 20px;">⏰</div>
+                <div style="font-size: 4rem; margin-bottom: 20px;">â°</div>
                 <h1 style="color:white; margin-bottom: 10px; font-size: 2rem; text-align:center;">${title}</h1>
                 <p style="color:var(--text-muted); margin-bottom: 40px;">Es ist Zeit!</p>
                 
@@ -4174,7 +4367,7 @@ const app = {
             this.map = L.map('driveMap').setView([51.1657, 10.4515], 6); // Germany center
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
+                attribution: 'Â© OpenStreetMap contributors'
             }).addTo(this.map);
         },
 
@@ -4386,7 +4579,7 @@ const app = {
                 if (app.finance) app.finance.render();
                 if (app.habits) app.habits.render();
                 if (app.health) app.health.render();
-                console.log("☁️ Data Synchronized from Cloud");
+                console.log("â˜ï¸ Data Synchronized from Cloud");
 
                 this.updateIndicator(true);
             }
@@ -4442,7 +4635,7 @@ const app = {
             try {
                 await this.db.collection('taskforce_sync').doc(team).set(payload, { merge: true });
                 const status = document.getElementById('syncStatus');
-                if (status) status.innerHTML = `<span style="color:var(--success)">⬆️ Gesendet (${new Date().toLocaleTimeString()})</span>`;
+                if (status) status.innerHTML = `<span style="color:var(--success)">⬆️ Gesendet (${new Date().toLocaleTimeString()})</span>`;
                 this.updateIndicator(true);
             } catch (e) { console.error("Push Error", e); this.updateIndicator(false); }
         },
@@ -4459,6 +4652,17 @@ const app = {
         render() {
             const config = app.state.aiConfig;
             document.getElementById('aiProviderSelect').value = config.provider;
+            document.querySelectorAll('.ai-config-fields').forEach(el => {
+                el.style.display = 'none'; // Safer
+                el.classList.add('hidden');
+            });
+            const fieldId = `${config.provider || 'openai'}Config`;
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.classList.remove('hidden');
+                field.style.display = 'block';
+            }
+
             document.getElementById('openaiKeyInput').value = config.openaiKey || '';
             document.getElementById('grokKeyInput').value = config.grokKey || '';
             document.getElementById('geminiKeyInput').value = config.geminiKey || '';
@@ -4629,8 +4833,15 @@ const app = {
         },
         updateAIProvider() {
             const provider = document.getElementById('aiProviderSelect').value;
-            document.querySelectorAll('.ai-config-fields').forEach(el => el.classList.add('hidden'));
-            document.getElementById(`${provider}Config`).classList.remove('hidden');
+            document.querySelectorAll('.ai-config-fields').forEach(el => {
+                el.classList.add('hidden');
+                el.style.display = 'none';
+            });
+            const field = document.getElementById(`${provider}Config`);
+            if (field) {
+                field.classList.remove('hidden');
+                field.style.display = 'block';
+            }
             this.saveAIConfig(true); // Silent save
         },
         saveAIConfig(silent = false) {
@@ -4863,7 +5074,7 @@ const app = {
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <div onclick="app.modals.open('editAlarm', { id: ${a.id} })" style="flex:1; cursor:pointer;">
                                     <div style="font-weight:bold; font-size:1.1rem; color:${a.active ? 'white' : 'var(--text-muted)'}">${a.time} - ${a.title || 'Alarm'}</div>
-                                    <div class="text-xs text-muted">${daysStr} | 🎵 ${sounds.find(s => s.id === a.sound)?.name || 'Standard'}</div>
+                                    <div class="text-xs text-muted">${daysStr} | ðŸŽµ ${sounds.find(s => s.id === a.sound)?.name || 'Standard'}</div>
                                 </div>
                                 <div style="display:flex; gap:10px; align-items:center;">
                                     <div class="checkbox-circle ${a.active ? 'checked' : ''}" style="width:20px; height:20px;" onclick="app.alarms.toggle(${a.id})"></div>
@@ -4877,7 +5088,7 @@ const app = {
                 c.innerHTML = `
                 <div style="padding:20px; max-height:80vh; overflow-y:auto;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                        <h3>⏰ Deine Wecker</h3>
+                        <h3>â° Deine Wecker</h3>
                         <button class="btn btn-primary btn-small" onclick="app.modals.open('editAlarm', { addNew: true })">
                             <i data-lucide="plus"></i> Neu
                         </button>
@@ -4902,7 +5113,7 @@ const app = {
 
                 c.innerHTML = `
                 <div style="padding:20px;">
-                    <h3>${isNew ? '⏰ Neuer Wecker' : '⏰ Wecker bearbeiten'}</h3>
+                    <h3>${isNew ? 'â° Neuer Wecker' : 'â° Wecker bearbeiten'}</h3>
                     <div class="form-group">
                         <label class="form-label">Titel</label>
                         <input id="alarmTitle" class="form-input" value="${alarm.title}" placeholder="z.B. Arbeit">
@@ -5056,7 +5267,7 @@ const app = {
                 <div style="padding:20px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; position:sticky; top:0; background:var(--bg-card); z-index:10; padding:10px 0; border-bottom:1px solid var(--border);">
                         <h3 style="margin:0;">Ausgabe erfassen</h3>
-                        <button class="btn btn-primary btn-small" onclick="app.modals.submitExpense()">▼ Speichern</button>
+                        <button class="btn btn-primary btn-small" onclick="app.modals.submitExpense()">â–¼ Speichern</button>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Wofür?</label>
@@ -5109,7 +5320,7 @@ const app = {
             } else if (type === 'addHealthReminder') {
                 c.innerHTML = `
                 <div style="padding:20px;">
-                    <h3>💊 Gesundheits-Erinnerung</h3>
+                    <h3>ðŸ’Š Gesundheits-Erinnerung</h3>
                     <div class="form-group">
                         <label class="form-label">Name</label>
                         <input id="reminderName" class="form-input" placeholder="z.B. Vitamin D">
@@ -5157,7 +5368,7 @@ const app = {
 
                 c.innerHTML = `
                 <div style="padding:20px; max-height:80vh; overflow-y:auto;">
-                    <h3>💧 Gesundheits-Erinnerungen</h3>
+                    <h3>ðŸ’§ Gesundheits-Erinnerungen</h3>
                     
                     <h4 style="margin-top:20px; border-bottom:1px solid var(--border); padding-bottom:5px;">Hydration</h4>
                     <div class="form-group">
@@ -5351,7 +5562,7 @@ const app = {
                                         <div style="background: var(--surface); padding: 5px 10px; border-radius: 8px; font-weight: bold; min-width: 60px; text-align: center;">${time}</div>
                                         <div>
                                             <div style="font-weight: 600;">${e.title}</div>
-                                            ${e.location ? `<div class="text-xs text-muted">📍 ${e.location}</div>` : ''}
+                                            ${e.location ? `<div class="text-xs text-muted">📍 ${e.location}</div>` : ''}
                                         </div>
                                     </div>`;
                 }).join('')}
@@ -5555,7 +5766,7 @@ const app = {
                         <div style="width:70px; height:70px; background:rgba(255,255,255,0.2); border-radius:20px; display:flex; align-items:center; justify-content:center; margin:0 auto 12px auto; font-size:2rem; font-weight:bold; color:white; backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.3);">${con.name.charAt(0).toUpperCase()}</div>
                         <h2 style="margin:0; font-size:1.5rem; letter-spacing:-0.5px;">${con.name}</h2>
                         <div style="font-size:0.7rem; opacity:0.8; text-transform:uppercase; margin-top:4px; font-weight:700; letter-spacing:1px;">
-                            ${con.category === 'business' ? '🏢 Business Partner' : '👤 Kontakt'}
+                            ${con.category === 'business' ? 'ðŸ¢ Business Partner' : 'ðŸ‘¤ Kontakt'}
                         </div>
                     </div>
 
@@ -6056,9 +6267,92 @@ const app = {
             this.render();
             app.renderDashboard();
         },
-        call(num) { if (num) window.location.href = `tel:${num}`; },
-        whatsapp(num) { if (num) window.open(`https://wa.me/${num.replace(/\D/g, '')}`, '_blank'); },
-        mail(email) { if (email) window.location.href = `mailto:${email}`; },
+        call(num) {
+            if (num) {
+                window.location.href = `tel:${num}`;
+            } else {
+                // Show contact selection
+                this.showContactPicker('call');
+            }
+        },
+        whatsapp(num) {
+            if (num) {
+                window.open(`https://wa.me/${num.replace(/\D/g, '')}`, '_blank');
+            } else {
+                // Show contact selection
+                this.showContactPicker('whatsapp');
+            }
+        },
+        mail(email) {
+            if (email) {
+                window.location.href = `mailto:${email}`;
+            } else {
+                // Show contact selection
+                this.showContactPicker('mail');
+            }
+        },
+        showContactPicker(action) {
+            const contacts = app.state.contacts || [];
+            if (contacts.length === 0) {
+                alert('Keine Kontakte vorhanden. Bitte füge zuerst Kontakte hinzu.');
+                app.navigateTo('contacts');
+                return;
+            }
+
+            // Filter contacts based on action
+            let filteredContacts = contacts;
+            if (action === 'call' || action === 'whatsapp') {
+                filteredContacts = contacts.filter(c => c.phone);
+            } else if (action === 'mail') {
+                filteredContacts = contacts.filter(c => c.email);
+            }
+
+            if (filteredContacts.length === 0) {
+                const msg = action === 'mail'
+                    ? 'Keine Kontakte mit E-Mail-Adresse gefunden.'
+                    : 'Keine Kontakte mit Telefonnummer gefunden.';
+                alert(msg);
+                return;
+            }
+
+            // Create selection modal
+            const actionText = {
+                'call': 'Anrufen',
+                'whatsapp': 'WhatsApp',
+                'mail': 'E-Mail schreiben'
+            };
+
+            const actionIcon = {
+                'call': 'phone',
+                'whatsapp': 'message-circle',
+                'mail': 'mail'
+            };
+
+            const html = `
+                <div style="padding: 20px;">
+                    <h2 style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                        <i data-lucide="${actionIcon[action]}" size="24"></i>
+                        ${actionText[action]}
+                    </h2>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        ${filteredContacts.map(c => `
+                            <button onclick="app.contacts.${action}('${action === 'mail' ? c.email : c.phone}'); app.modals.close();" 
+                                style="width: 100%; padding: 15px; margin-bottom: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; cursor: pointer; text-align: left; transition: all 0.2s;"
+                                onmouseover="this.style.background='rgba(255,255,255,0.1)'"
+                                onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+                                <div style="font-weight: 700; font-size: 1rem; margin-bottom: 5px;">${c.name}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                                    <i data-lucide="${actionIcon[action]}" size="12"></i> 
+                                    ${action === 'mail' ? c.email : c.phone}
+                                </div>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            app.modals.open('contactPicker', { html });
+        },
         async importBrowser() {
             try {
                 if ('contacts' in navigator && 'ContactsManager' in window) {
@@ -6323,7 +6617,7 @@ const app = {
         perform(q) {
             if (!q) return;
             window.open(`https://www.google.com/search?q=${encodeURIComponent(q)}`, '_blank');
-            if (app.notifications) app.notifications.send("🔍 Business Suche", "Suche die Firma und kopiere die URL für den Import.");
+            if (app.notifications) app.notifications.send("ðŸ” Business Suche", "Suche die Firma und kopiere die URL für den Import.");
         },
         async importFromUrl() {
             let urlLink = document.getElementById('importUrl').value;
@@ -6483,8 +6777,8 @@ const app = {
                             </a>
                             <span class="text-xs text-muted" style="max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.name}</span>
                             <div style="position:absolute; top:-5px; right:-5px; display:flex; gap:2px;">
-                                <button onclick="app.modals.open('addShortcut', {id: ${s.id}})" style="background:rgba(59,130,246,0.8); border:none; color:white; border-radius:50%; width:16px; height:16px; font-size:10px; display:flex; align-items:center; justify-content:center; cursor:pointer;" title="Bearbeiten">✎</button>
-                                <button onclick="app.shortcuts.delete(${s.id})" style="background:rgba(239,68,68,0.8); border:none; color:white; border-radius:50%; width:16px; height:16px; font-size:10px; display:flex; align-items:center; justify-content:center; cursor:pointer;" title="Löschen">×</button>
+                                <button onclick="app.modals.open('addShortcut', {id: ${s.id}})" style="background:rgba(59,130,246,0.8); border:none; color:white; border-radius:50%; width:16px; height:16px; font-size:10px; display:flex; align-items:center; justify-content:center; cursor:pointer;" title="Bearbeiten">âœŽ</button>
+                                <button onclick="app.shortcuts.delete(${s.id})" style="background:rgba(239,68,68,0.8); border:none; color:white; border-radius:50%; width:16px; height:16px; font-size:10px; display:flex; align-items:center; justify-content:center; cursor:pointer;" title="Löschen">Ã—</button>
                             </div>
                         </div>
                     `;
@@ -6793,7 +7087,7 @@ const app = {
                         this.intervalId = setInterval(() => this.updateDisplay(), 1000);
                         this.updateDisplay();
 
-                        console.log('⏱️ Zeit-Tracker wiederhergestellt!');
+                        console.log('â±ï¸ Zeit-Tracker wiederhergestellt!');
                     }
                 } catch (e) {
                     console.error('Fehler beim Laden des Timer-Status:', e);
@@ -7011,7 +7305,7 @@ const app = {
             const activeProjects = app.state.projects.filter(p => p.status === 'active').slice(0, 2);
 
             if (activeProjects.length === 0) {
-                container.innerHTML = '<div class="text-muted text-sm" style="padding: 10px; text-align: center;">Alle Projekte abgeschlossen! 🎉</div>';
+                container.innerHTML = '<div class="text-muted text-sm" style="padding: 10px; text-align: center;">Alle Projekte abgeschlossen! ðŸŽ‰</div>';
                 return;
             }
 
@@ -7058,10 +7352,10 @@ const app = {
 
             const date = new Date(meeting.date).toLocaleString('de-DE');
             alert(
-                `📋 ${meeting.title}\n\n` +
-                `📅 ${date}\n` +
-                (meeting.participants ? `👥 ${meeting.participants}\n\n` : '\n') +
-                (meeting.notes ? `📝 ${meeting.notes}` : 'Keine Notizen')
+                `📍‹ ${meeting.title}\n\n` +
+                `📍… ${date}\n` +
+                (meeting.participants ? `ðŸ‘¥ ${meeting.participants}\n\n` : '\n') +
+                (meeting.notes ? `📍 ${meeting.notes}` : 'Keine Notizen')
             );
         },
 
@@ -7152,8 +7446,9 @@ const app = {
                     onmouseover="this.style.background='rgba(255,255,255,0.1)'"
                     onmouseout="this.style.background='rgba(255,255,255,0.05)'">
                     <div style="font-weight:600; font-size:0.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${c.name}</div>
-                    <div style="display:flex; gap:5px; margin-top:5px;">
+                    <div style="display:flex; gap:8px; margin-top:5px;">
                         ${c.phone ? `<a href="tel:${c.phone}" onclick="event.stopPropagation()" style="color:var(--success);"><i data-lucide="phone" size="14"></i></a>` : ''}
+                        ${c.phone ? `<a href="#" onclick="event.stopPropagation(); app.contacts.whatsapp('${c.phone}'); return false;" style="color:#25d366;"><i data-lucide="message-circle" size="14"></i></a>` : ''}
                         ${c.email ? `<a href="mailto:${c.email}" onclick="event.stopPropagation()" style="color:var(--primary);"><i data-lucide="mail" size="14"></i></a>` : ''}
                     </div>
                 </div>
@@ -7165,7 +7460,7 @@ const app = {
             try {
                 // Check if Contact Picker API is supported
                 if (!('contacts' in navigator)) {
-                    alert('❌ Telefonbuch-Import wird von diesem Browser nicht unterstützt.\n\nBitte nutze Chrome oder Edge auf Android.');
+                    alert('âŒ Telefonbuch-Import wird von diesem Browser nicht unterstützt.\n\nBitte nutze Chrome oder Edge auf Android.');
                     return;
                 }
 
@@ -7220,7 +7515,7 @@ const app = {
                     // User cancelled
                     return;
                 }
-                alert('❌ Fehler beim Importieren der Kontakte:\n' + error.message);
+                alert('âŒ Fehler beim Importieren der Kontakte:\n' + error.message);
             }
         },
 
@@ -7360,6 +7655,7 @@ const app = {
                                         ${isMobile ? `
                                             <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px; display:flex; gap:6px;">
                                                 ${c.phone ? `<a href="tel:${c.phone}" style="color:var(--text-muted);"><i data-lucide="phone" size="12"></i></a>` : ''}
+                                                ${c.phone ? `<a href="#" onclick="app.contacts.whatsapp('${c.phone}'); return false;" style="color:#25d366;"><i data-lucide="message-circle" size="12"></i></a>` : ''}
                                                 ${c.email ? `<a href="mailto:${c.email}" style="color:var(--text-muted);"><i data-lucide="mail" size="12"></i></a>` : ''}
                                                 ${c.category === 'business' ? '<span style="color:#3b82f6;">(Bus)</span>' : ''}
                                             </div>
@@ -7405,6 +7701,7 @@ const app = {
                                 
                                 <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;" onclick="event.stopPropagation()">
                                     ${contact.phone ? `<a href="tel:${contact.phone}" style="display:flex; align-items:center; gap:4px; padding:6px 12px; background:rgba(34,197,94,0.15); border:1px solid rgba(34,197,94,0.3); border-radius:8px; color:#22c55e; font-size:0.85rem; font-weight:600; text-decoration:none; transition:all 0.2s;" onmouseover="this.style.background='rgba(34,197,94,0.25)'" onmouseout="this.style.background='rgba(34,197,94,0.15)'" title="Anrufen"><i data-lucide="phone" size="14"></i> Anrufen</a>` : ''}
+                                    ${contact.phone ? `<a href="#" onclick="app.contacts.whatsapp('${contact.phone}'); return false;" style="display:flex; align-items:center; gap:4px; padding:6px 12px; background:rgba(37,211,102,0.15); border:1px solid rgba(37,211,102,0.3); border-radius:8px; color:#25d366; font-size:0.85rem; font-weight:600; text-decoration:none; transition:all 0.2s;" onmouseover="this.style.background='rgba(37,211,102,0.25)'" onmouseout="this.style.background='rgba(37,211,102,0.15)'" title="WhatsApp"><i data-lucide="message-circle" size="14"></i> WhatsApp</a>` : ''}
                                     ${contact.email ? `<a href="mailto:${contact.email}" style="display:flex; align-items:center; gap:4px; padding:6px 12px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3); border-radius:8px; color:#3b82f6; font-size:0.85rem; font-weight:600; text-decoration:none; transition:all 0.2s;" onmouseover="this.style.background='rgba(59,130,246,0.25)'" onmouseout="this.style.background='rgba(59,130,246,0.15)'" title="E-Mail schreiben"><i data-lucide="mail" size="14"></i> E-Mail</a>` : ''}
                                 </div>
                             </div>
@@ -7473,7 +7770,7 @@ const app = {
                                 <span>${typeLabel}</span>
                                 <span>${new Date(item.archivedAt).toLocaleString('de-DE')}</span>
                             </div>
-                            ${item.location ? `<div style="color:var(--text-muted); display:flex; gap:4px; align-items:center; margin-top:4px;"><i data-lucide="map-pin" size="12"></i> ${item.location} (Steuer-relevant)</div>` : ''}
+                            ${item.location ? `<div style="color:var(--text-muted); display:flex; gap:4px; align-items:center; margin-top:4px;"><i data-lucide="map-marker" size="12"></i> ${item.location} (Steuer-relevant)</div>` : ''}
                         </div>
                     </div>
                 </div>
@@ -7489,8 +7786,470 @@ const app = {
                 this.render();
             }
         }
+    },
+
+    // --- AI MODULE (TaskForce Butler) ---
+    ai: {
+        async analyzeState() {
+            const list = document.getElementById('aiInsightsList');
+            if (list) list.innerHTML = '<div style="padding:10px; display:flex; align-items:center; gap:10px;"><div class="loading-dots"></div> Butler analysiert...</div>';
+
+            try {
+                if (typeof callAI === 'undefined') {
+                    throw new Error('KI Modul nicht geladen.');
+                }
+
+                const context = this.getSystemContext();
+                const systemPrompt = `Du bist der "TaskForce Butler". Ein extrem hilfreicher, proaktiver Assistent.
+Analysiere die aktuelle Situation des Nutzers (inkl. überfälliger Aufgaben & Rückblick).
+Gib 3-4 kurze, hilfreiche Tipps, Warnungen oder Erinnerungen (max 15 Wörter pro Tipp).
+Berücksichtige den aktuellen Modus: ${context.mode}.
+Antworte DIREKT in validem HTML (nur <ul><li>...). Nutze Emojis.`;
+
+                const messages = [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: `Hier sind meine aktuellen Daten:\n${JSON.stringify(context)}` }
+                ];
+
+                const response = await callAI(messages, { temperature: 0.5 });
+                if (list) list.innerHTML = response;
+            } catch (err) {
+                if (list) list.innerHTML = `<span style="color:#ef4444; font-size:0.8rem;">Analyse fehlgeschlagen: ${err.message}</span>`;
+                console.error('AI Analysis Error:', err);
+            }
+        },
+
+        async startDeepAnalysis() {
+            app.modals.open('aiBriefing', { html: '<div style="text-align:center; padding:40px;"><div class="loading-spinner" style="width:40px; height:40px; margin:0 auto 20px;"></div><h3 style="margin-bottom:10px;">Deep Analysis läuft...</h3><p class="text-muted">Ich analysiere deine Produktivität, Finanzen und Gesundheit.</p></div>' });
+
+            try {
+                const context = this.getSystemContext();
+                context.habits = app.state.habits || [];
+                context.allTasks = app.state.tasks || [];
+                context.expenses = app.state.expenses || [];
+
+                const systemPrompt = `Du bist ein professioneller Life-Coach und Analyst ("TaskForce Pro").
+Führe eine TIEFENANALYSE des Nutzers durch. Sei ehrlich, direkt und konstruktiv.
+Struktur des HTML-Reports (nutze modernes, dunkles Design):
+1. **Productivity Score (0-100%)**: Berechne basierend auf offenen vs. erledigten Aufgaben/Überfälligem.
+2. **Kritische Warnungen**: Was läuft schief? (Überfälliges, Budget, Habits vernachlässigt).
+3. **Finanz-Check**: Kurze Bewertung der Ausgaben.
+4. **Gesundheit & Routine**: Werden Habits eingehalten?
+5. **Action Plan**: 3 konkrete Schritte für SOFORT.
+
+Antworte NUR mit dem HTML-Code für den Inhalt des Modals (keine Markdown-Codes wie \`\`\`html).
+Nutze <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:10px; margin-bottom:10px;"> für Sektionen.
+Nutze Farben (rot für Kritisch, grün für Gut).`;
+
+                const messages = [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: `Führe die Analyse durch für: ${JSON.stringify(context)}` }
+                ];
+
+                const response = await callAI(messages, { temperature: 0.7, max_tokens: 800 });
+
+                app.modals.open('aiBriefing', { html: '<h2 style="text-align:center; margin-bottom:20px;">📍Š Deep Life Analysis</h2>' + response });
+
+            } catch (err) {
+                app.modals.open('aiBriefing', { html: `<div style="color:var(--danger); text-align:center; padding:20px;">Fehler bei der Analyse: ${err.message}</div>` });
+            }
+        },
+        readBriefingOutLoud(btn) {
+            const container = btn.closest('.modal').querySelector('.briefing-content-container');
+            if (container && typeof speakAI === 'function') {
+                const text = container.innerText || container.textContent;
+                speakAI(text);
+
+                // UI Feedback
+                btn.style.background = 'var(--primary)';
+                btn.style.color = 'white';
+                setTimeout(() => {
+                    btn.style.background = '';
+                    btn.style.color = '';
+                }, 2000);
+            }
+        },
+
+        getSystemContext() {
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+
+            // Calculate budget safely
+            const budget = 2000;
+            const spent = (app.state.expenses && Array.isArray(app.state.expenses))
+                ? app.state.expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0)
+                : 0;
+
+            return {
+                user: app.state.user.name,
+                mode: app.state.ui.dashboardMode,
+                time: now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                date: todayStr,
+                appointmentsToday: (app.state.events || []).filter(e => e.date === todayStr).map(e => ({ time: e.time, title: e.title })),
+                tasksOpenCount: (app.state.tasks || []).filter(t => !t.done).length,
+                urgentTasks: (app.state.tasks || []).filter(t => t.urgent && !t.done).map(t => t.title),
+                overdueTasks: (app.state.tasks || []).filter(t => !t.done && t.deadline && t.deadline < todayStr).map(t => `${t.title} (fällig am ${t.deadline})`),
+                pastEvents: (app.state.events || []).filter(e => e.date < todayStr).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3).map(e => e.title),
+                remainingBudget: (budget - spent).toFixed(2) + ' €',
+                activeProjects: (app.state.projects || []).slice(0, 3).map(p => p.title),
+                recentMeetings: (app.state.meetings || []).slice(0, 2).map(m => m.title)
+            };
+        }
+    },
+
+    // --- BUSINESS SEARCH MODULE ---
+    businessSearch: {
+        perform(query) {
+            if (!query || !query.trim()) {
+                alert('Bitte gib einen Suchbegriff ein.');
+                return;
+            }
+            // Open Google Search in new tab
+            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+            window.open(searchUrl, '_blank');
+        },
+
+        importFromUrl() {
+            const urlInput = document.getElementById('importBusinessUrl');
+            if (!urlInput) return;
+
+            const url = urlInput.value.trim();
+            if (!url) {
+                alert('Bitte gib eine Website-URL ein.');
+                return;
+            }
+
+            // Simple extraction - open URL in new tab for manual review
+            window.open(url, '_blank');
+            alert('Website geöffnet! Kopiere die Kontaktdaten und füge sie manuell hinzu.');
+        },
+
+        saveImported() {
+            // This would be called after manual import
+            const name = document.getElementById('importBusinessName')?.value || '';
+            const phone = document.getElementById('importBusinessPhone')?.value || '';
+            const email = document.getElementById('importBusinessEmail')?.value || '';
+            const address = document.getElementById('importBusinessAddress')?.value || '';
+            const homepage = document.getElementById('importBusinessHomepage')?.value || '';
+
+            if (name) {
+                app.contacts.add(name, phone, email, address, homepage);
+                app.modals.close();
+                alert(`${name} wurde erfolgreich hinzugefügt!`);
+            } else {
+                alert('Bitte gib mindestens einen Namen ein.');
+            }
+        }
+    }
+
+};
+
+// === DASHBOARD CARDS UPDATE ===
+// Aktualisiert die Dashboard-Karten mit echten Daten
+function updateDashboardCards() {
+    if (!app || !app.state) return;
+
+    const tasks = app.state.tasks || [];
+    const events = app.state.events || [];
+    const healthData = app.state.healthData || [];
+    const todayISO = new Date().toISOString().split('T')[0];
+
+    // 1. HAUSHALT KARTE
+    const householdTasks = tasks.filter(t => !t.done && t.category === 'household');
+    const householdPreview = document.getElementById('dashboardHouseholdPreview');
+    if (householdPreview) {
+        if (householdTasks.length > 0) {
+            householdPreview.innerHTML = `
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                    ${householdTasks.slice(0, 3).map(t => `
+                        <div style="display:flex; align-items:center; gap:8px; padding:6px; background:rgba(34, 197, 94, 0.1); border-radius:8px;">
+                            <i data-lucide="check-circle" size="14" style="color:#22c55e;"></i>
+                            <span style="font-size:0.85rem; flex:1;">${t.title}</span>
+                        </div>
+                    `).join('')}
+                    ${householdTasks.length > 3 ? `<div class="text-muted text-xs" style="text-align:center;">+${householdTasks.length - 3} weitere</div>` : ''}
+                </div>
+            `;
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+
+    // 2. WOCHENMENÜ KARTE - KOMPLETT NEU
+    const menuTasks = tasks.filter(t => !t.done && t.category === 'menu');
+    const mealPlanPreview = document.getElementById('dashboardMealPlanPreview');
+
+    if (mealPlanPreview) {
+        const weekDays = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+        const today = new Date();
+        const todayDay = today.getDay();
+
+        // Erstelle Wochenübersicht (nächste 7 Tage)
+        let weekHTML = '<div style="display:flex; flex-direction:column; gap:8px; padding:5px 0;">';
+
+        if (menuTasks.length > 0) {
+            // Gruppiere Menüs nach Datum
+            const menuByDate = {};
+            menuTasks.forEach(t => {
+                if (t.deadline) {
+                    menuByDate[t.deadline] = t.title;
+                }
+            });
+
+            // Zeige nächste 7 Tage
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(today);
+                date.setDate(date.getDate() + i);
+                const dateISO = date.toISOString().split('T')[0];
+                const dayName = weekDays[date.getDay()];
+                const isToday = i === 0;
+                const meal = menuByDate[dateISO];
+
+                if (meal || isToday) {
+                    weekHTML += `
+                        <div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:${isToday ? 'rgba(234, 179, 8, 0.15)' : 'rgba(234, 179, 8, 0.05)'}; border-radius:8px; border-left:3px solid ${isToday ? '#eab308' : 'transparent'};">
+                            <div style="font-weight:700; color:#eab308; min-width:25px; font-size:0.85rem;">${dayName}</div>
+                            <div style="flex:1; font-size:0.85rem; color:${meal ? 'white' : 'var(--text-muted)'}; font-style:${meal ? 'normal' : 'italic'};">
+                                ${meal || '-- Noch kein Menü --'}
+                            </div>
+                            ${isToday ? '<div style="background:#eab308; color:black; padding:2px 6px; border-radius:4px; font-size:0.65rem; font-weight:700;">HEUTE</div>' : ''}
+                        </div>
+                    `;
+                }
+            }
+
+            weekHTML += '</div>';
+            mealPlanPreview.innerHTML = weekHTML;
+        } else {
+            // Keine Menüs vorhanden
+            mealPlanPreview.innerHTML = `
+                <div style="text-align:center; padding:20px;">
+                    <div style="font-size:2rem; margin-bottom:10px;">🍽️</div>
+                    <div style="color:var(--text-muted); font-size:0.9rem; margin-bottom:10px;">Noch kein Wochenmenü geplant</div>
+                    <button onclick="app.modals.open('viewMealPlan')" style="background:rgba(234, 179, 8, 0.2); border:1px solid rgba(234, 179, 8, 0.4); color:#eab308; padding:8px 16px; border-radius:8px; cursor:pointer; font-weight:600; font-size:0.85rem;">
+                        + Menü planen
+                    </button>
+                </div>
+            `;
+        }
+    }
+
+    // 3. PRIVATE DRIVE MODE KARTE
+    const privateDriveCard = document.getElementById('dashboardPrivateDriveCard');
+    if (privateDriveCard) {
+        const todayEvents = events.filter(e => e.date === todayISO);
+        const upcomingEvents = events.filter(e => e.date > todayISO).slice(0, 3);
+
+        let driveInfo = 'Fahrt-Assistent für private Termine';
+        if (todayEvents.length > 0) {
+            driveInfo = `${todayEvents.length} Termin${todayEvents.length > 1 ? 'e' : ''} heute`;
+        } else if (upcomingEvents.length > 0) {
+            driveInfo = `${upcomingEvents.length} anstehende Termine`;
+        }
+
+        const driveDesc = privateDriveCard.querySelector('.text-muted');
+        if (driveDesc) {
+            driveDesc.textContent = driveInfo;
+            if (todayEvents.length > 0) {
+                driveDesc.style.color = '#3b82f6';
+                driveDesc.style.fontWeight = '600';
+            }
+        }
+    }
+
+    // 4. VITALITÄT KARTE
+    const healthCard = document.getElementById('dashboardHealthCard');
+    if (healthCard) {
+        const waterToday = healthData
+            .filter(d => d.type === 'water' && d.date === todayISO)
+            .reduce((sum, d) => sum + d.value, 0);
+        const waterGoal = app.state.hydrationGoal || 2.5;
+
+        const healthPreview = healthCard.querySelector('#dashboardHealthPreview') || healthCard.querySelector('.card-body');
+        if (healthPreview) {
+            healthPreview.innerHTML = `
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:10px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button onclick="app.health.addWater(0.25); setTimeout(updateDashboardCards, 100);" 
+                                style="background:rgba(59, 130, 246, 0.2); border:2px solid rgba(59, 130, 246, 0.5); color:#3b82f6; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1.5rem; transition:all 0.2s;"
+                                onmouseover="this.style.transform='scale(1.1)'"
+                                onmouseout="this.style.transform='scale(1)'">
+                            💧
+                        </button>
+                        <span style="font-size:0.85rem; font-weight:600;">Wasser</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:1.2rem; font-weight:700; color:#3b82f6;">${waterToday.toFixed(1)}L</div>
+                        <div class="text-muted text-xs">von ${waterGoal}L</div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+}
+
+// Bei Änderungen aktualisieren
+const originalSaveState = app.saveState;
+app.saveState = function () {
+    originalSaveState.call(app);
+    setTimeout(updateDashboardCards, 100);
+};
+
+
+// --- EXTENDED ALARM & URGENCY SYSTEM ---
+if (!app.settings) app.settings = {};
+app.settings.saveAlarmSettings = function () {
+    if (!app.state.ui) app.state.ui = {};
+    app.state.ui.enableAlarmBlink = document.getElementById('alarmBlinkToggle').checked;
+    app.state.ui.enableAlarmPopup = document.getElementById('alarmPopupToggle').checked;
+    app.state.ui.enableAlarmSound = document.getElementById('alarmSoundToggle').checked;
+    app.saveState();
+
+    // Feedback
+    if (typeof showToast === 'function') showToast('Alarm-Einstellungen gespeichert', 'success');
+    if (app.state.ui.enableAlarmSound) app.actions.playAlarmSignal();
+};
+
+app.actions.playAlarmSignal = function () {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(880, ctx.currentTime + 0.1);
+        osc.frequency.linearRampToValueAtTime(440, ctx.currentTime + 0.2);
+        osc.frequency.linearRampToValueAtTime(880, ctx.currentTime + 0.3);
+        osc.frequency.linearRampToValueAtTime(440, ctx.currentTime + 0.4);
+
+        gain.gain.setValueAtTime(0.5, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.6);
+    } catch (e) { console.warn("Audio error", e); }
+};
+
+// Overwrite blinking logic (CORRECTLY on app root)
+app.updateDashboardBlinking = function () {
+    // Ensure Defaults
+    app.state.ui = app.state.ui || {};
+    if (typeof app.state.ui.enableAlarmBlink === 'undefined') app.state.ui.enableAlarmBlink = true;
+    if (typeof app.state.ui.enableAlarmPopup === 'undefined') app.state.ui.enableAlarmPopup = true;
+    if (typeof app.state.ui.enableAlarmSound === 'undefined') app.state.ui.enableAlarmSound = true;
+
+    // Check urgency
+    const now = new Date();
+    const urgentEvent = app.state.events.find(e => {
+        // Parse start time safely
+        const evtTime = new Date(e.start);
+        if (isNaN(evtTime.getTime())) return false;
+
+        const diffMins = (evtTime - now) / 1000 / 60;
+        // Window: 2 Hours (120 mins) or Urgent flag
+        // Must be in future (diff > 0) or very recently started (e.g. -5 min)
+        return (diffMins > -5 && diffMins <= 120) || e.urgent;
+    });
+    const hasUrgent = !!urgentEvent;
+
+    const dashCard = document.getElementById('dashboardEventsCard');
+    if (dashCard) {
+        // Reset
+        dashCard.classList.remove('blink-urgent', 'appointment-imminent', 'blink-standard', 'blink-flash', 'blink-neon', 'blink-shake', 'blink-extreme', 'blink-rainbow');
+
+        if (hasUrgent) {
+            // 1. Blinking
+            if (app.state.ui.enableAlarmBlink) {
+                dashCard.classList.add('blink-urgent');
+            }
+
+            // 2. Alarm Logic (Debounced 15m)
+            const lastTrigger = app.state.ui.lastAlarmTriggered || 0;
+            // Cooldown 15 mins
+            if (Date.now() - lastTrigger > 15 * 60 * 1000) {
+
+                // Sound
+                if (app.state.ui.enableAlarmSound) {
+                    if (app.actions && app.actions.playAlarmSignal) app.actions.playAlarmSignal();
+                }
+
+                // Popup
+                if (app.state.ui.enableAlarmPopup) {
+                    setTimeout(() => {
+                        if (app.modals) {
+                            app.modals.open('alarmPopup', {
+                                html: `<div style="text-align:center; padding:20px;">
+                                    <div style="font-size:3rem; margin-bottom:10px;">🔔</div>
+                                    <h2 style="color:var(--danger); margin-bottom:10px;">${urgentEvent.title}</h2>
+                                    <p style="margin-bottom:20px;">Dieser Termin steht jetzt an (${urgentEvent.time || 'Demnächst'} Uhr).</p>
+                                    <button onclick="app.modals.close()" class="btn btn-primary" style="width:100%;">Verstanden</button>
+                                </div>`
+                            });
+                        } else {
+                            alert(`🔔 Wichtiger Termin: ${urgentEvent.title}`);
+                        }
+                    }, 500);
+                }
+
+                app.state.ui.lastAlarmTriggered = Date.now();
+                app.saveState();
+            }
+        }
     }
 };
 
+// Also define it on app.actions just in case I referenced it there elsewhere
+app.actions.updateDashboardBlinking = app.updateDashboardBlinking;
+
+// --- GLOBALS & UTILS ---
+window.showToast = function (message, type = 'info') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.style.cssText = 'position:fixed; bottom:80px; left:50%; transform:translateX(-50%); z-index:10000; pointer-events:none; display:flex; flex-direction:column; gap:10px; align-items:center;';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.style.cssText = `padding: 12px 24px; border-radius: 20px; background: ${type === 'success' ? '#10b981' : (type === 'danger' ? '#ef4444' : '#3b82f6')}; color: white; font-weight: 600; font-size: 0.9rem; box-shadow: 0 10px 25px rgba(0,0,0,0.3); animation: toastIn 0.3s ease-out forwards; pointer-events: all;`;
+    toast.innerHTML = message;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.animation = 'toastOut 0.3s ease-in forwards';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+};
+
+// Add standard animations to document
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes toastIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes toastOut { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-20px); opacity: 0; } }
+    .loading-dots:after { content: ' .'; animation: dots 1.5s steps(5, end) infinite; }
+    @keyframes dots { 0%, 20% { color: rgba(0,0,0,0); text-shadow: .5em 0 0 rgba(0,0,0,0), 1em 0 0 rgba(0,0,0,0); } 40% { color: white; text-shadow: .5em 0 0 rgba(0,0,0,0), 1em 0 0 rgba(0,0,0,0); } 60% { text-shadow: .5em 0 0 white, 1em 0 0 rgba(0,0,0,0); } 80%, 100% { text-shadow: .5em 0 0 white, 1em 0 0 white; } }
+`;
+document.head.appendChild(style);
+
+// Run logic immediately to check for existing alarms
+setTimeout(app.updateDashboardBlinking, 2000);
+
 // --- BOOTSTRAP ---
-document.addEventListener('DOMContentLoaded', () => app.init());
+document.addEventListener('DOMContentLoaded', () => {
+    app.init();
+    setTimeout(updateDashboardCards, 500);
+});
+
+// Global Callback for Google Sign-In (New GIS Support)
+window.handleGoogleCredentialResponse = function (response) {
+    if (app && app.auth && app.auth.handleGoogleLogin) {
+        app.auth.handleGoogleLogin(response);
+    } else {
+        console.error("App auth module not ready for Google Login");
+    }
+};
