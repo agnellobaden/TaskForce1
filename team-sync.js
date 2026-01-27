@@ -32,6 +32,10 @@ app.cloud = {
             this.syncInterval = setInterval(() => this.sync(), 30000);
 
             console.log('✅ Team Sync aktiviert');
+            // Inject Helper into app.team if possible
+            if (app.team) {
+                app.team.renderReadStatus = this.renderReadStatus.bind(this);
+            }
         } catch (e) {
             console.error('Firebase Init Error:', e);
         }
@@ -42,6 +46,13 @@ app.cloud = {
 
         const now = Date.now();
         if (!force && now - this.lastSync < 10000) return; // Debounce 10s
+
+        // SMART SYNC: Only sync if local changes occurred since last sync
+        const lastLocalChange = app.state.lastLocalChange || 0;
+        if (!force && lastLocalChange <= this.lastSync) {
+            // No local changes -> Skip sync to avoid overwriting remote state (like readBy)
+            return;
+        }
 
         try {
             const teamDoc = this.db.collection('teams').doc(app.state.user.teamName);
@@ -56,17 +67,43 @@ app.cloud = {
                 projects: app.state.projects || [],
                 meetings: app.state.meetings || [],
                 lastUpdate: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedBy: app.state.user.name || 'Unknown'
+                updatedBy: app.state.user.name || 'Unbekannt',
+                readBy: [app.state.user.name || 'Unbekannt'] // Reset read status on new changes
             }, { merge: true });
 
             this.lastSync = now;
             this.updateSyncStatus('synced');
 
-            console.log('✅ Cloud Sync erfolgreich');
+            console.log('âœ… Cloud Sync erfolgreich');
         } catch (e) {
             console.error('Sync Error:', e);
             this.updateSyncStatus('error');
         }
+    },
+
+    // Inject Render Function
+    renderReadStatus(readBy = []) {
+        // Target BOTH the team view list AND the dashboard card list
+        const containers = [
+            document.getElementById('teamReadReceipts'),
+            document.getElementById('dashboardReadReceiptsList')
+        ];
+
+        containers.forEach(container => {
+            if (!container) return;
+
+            if (!readBy || readBy.length === 0) {
+                container.innerHTML = '<div class="text-muted text-sm" style="font-style:italic;">Noch nicht gelesen.</div>';
+                return;
+            }
+
+            container.innerHTML = readBy.map(name => `
+                <div style="display:flex; align-items:center; gap:6px; background:rgba(34,197,94,0.1); padding:4px 8px; border-radius:12px; border:1px solid rgba(34,197,94,0.3);">
+                     <div style="width:16px; height:16px; background:#22c55e; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px;">✓</div>
+                     <span style="font-size:0.85rem; font-weight:600; color:var(--text-main);">${name}</span>
+                </div>
+            `).join('');
+        });
     },
 
     startRealtimeSync() {
@@ -81,13 +118,45 @@ app.cloud = {
             const data = doc.data();
             const updatedBy = data.updatedBy || 'Team-Mitglied';
             const updateTimestamp = data.lastUpdate ? data.lastUpdate.toMillis() : Date.now();
+            const readBy = data.readBy || [];
+
+            console.log('ðŸ“¡ Team-Sync Update empfangen von:', updatedBy, 'Timestamp:', updateTimestamp, 'Gelesen von:', readBy);
+
+            // Update Read Receipts UI
+            if (this.renderReadStatus) this.renderReadStatus(readBy);
+            // Also try app.team if available
+            if (app.team && app.team.renderReadStatus) app.team.renderReadStatus(readBy);
+
+            // NEU: Lesebestätigung für den ABSENDER anzeigen
+            if (updatedBy === app.state.user.name) {
+                // Ich bin der Absender. Prüfe, ob neue Leute gelesen haben
+                if (this.lastReadCount !== undefined && readBy.length > this.lastReadCount) {
+                    const newReaders = readBy.filter(name => name !== app.state.user.name);
+                    const latestReader = newReaders[newReaders.length - 1];
+
+                    if (latestReader) {
+                        console.log(`👁️ Lesebestätigung: ${latestReader} hat deine Änderungen gesehen`);
+                        if (window.showToast) {
+                            showToast(`👁️ ${latestReader} hat deine Änderungen gelesen`, 'success');
+                        }
+                    }
+                }
+                this.lastReadCount = readBy.length;
+
+                // Wir haben unser eigenes Update empfangen - wir müssen das Modal trotzdem zeigen (benutzerwunsch)
+                // Aber wir müssen nicht mergen, da wir die Daten ja gerade gesendet haben.
+            }
 
             // Check if this user has already acknowledged this update
             const notificationId = `team_update_${updateTimestamp}`;
             const acknowledgedNotifications = app.state.acknowledgedNotifications || [];
 
+            console.log('🔍 Notification ID:', notificationId);
+            console.log('📋 Bereits bestätigt:', acknowledgedNotifications.includes(notificationId));
+
             // Skip if already acknowledged by this user
             if (acknowledgedNotifications.includes(notificationId)) {
+                console.log('✅ Update bereits bestätigt, überspringe Benachrichtigung');
                 // Just update data silently
                 this.mergeRemoteData(data);
                 app.renderDashboard();
@@ -99,8 +168,10 @@ app.cloud = {
 
             // Check what changed
             const changes = this.detectChanges(data);
+            console.log('🔄 Erkannte Änderungen:', changes.length, changes);
 
             if (changes.length > 0) {
+                console.log('🔔 Zeige Benachrichtigung für:', changes);
                 // Show notification - MUST be acknowledged by THIS user
                 this.notifyChanges(updatedBy, changes, notificationId);
 
@@ -108,10 +179,21 @@ app.cloud = {
                 this.mergeRemoteData(data);
 
                 // Re-render UI
-                app.renderDashboard();
-                if (app.tasks) app.tasks.render();
                 if (app.calendar) app.calendar.render();
                 if (app.finance) app.finance.render();
+            } else {
+                // Fallback & Self-Test: Auch bei keinen erkannten Änderungen oder eigener Änderung benachrichtigen (für Tests)
+                // Dies stellt sicher, dass das Popup IMMER kommt, solange es nicht bestätigt wurde.
+                console.log('🔔 Zeige Benachrichtigung (Fallback/Test)');
+
+                let msg = 'Allgemeine Aktualisierung';
+                if (updatedBy === app.state.user.name) {
+                    msg = 'Deine Änderung (Anderer Tab/Gerät)';
+                }
+
+                this.notifyChanges(updatedBy, [{ type: 'info', icon: '📝', text: msg }], notificationId);
+                this.mergeRemoteData(data);
+                app.renderDashboard();
             }
         }, (error) => {
             console.error('Realtime Sync Error:', error);
@@ -225,6 +307,9 @@ app.cloud = {
             // Show notification with onConfirm callback
             showModalNotification(title, mainMessage, 'info', details, () => {
                 // This callback is called ONLY when user clicks OK
+                const userName = app.state.user.name || 'Unbekannt';
+
+                // 1. Lokale Bestätigung speichern
                 if (!app.state.acknowledgedNotifications) {
                     app.state.acknowledgedNotifications = [];
                 }
@@ -237,7 +322,16 @@ app.cloud = {
                     }
 
                     app.saveState();
-                    console.log(`✅ ${currentUser} hat Team-Update bestätigt: ${notificationId}`);
+                    console.log(`✅ ${userName} hat Team-Update bestätigt: ${notificationId}`);
+                }
+
+                // 2. Cloud Lesebestätigung senden (Firestore arrayUnion)
+                if (this.db && app.state.user.teamName) {
+                    this.db.collection('teams').doc(app.state.user.teamName).update({
+                        readBy: firebase.firestore.FieldValue.arrayUnion(userName)
+                    }).then(() => {
+                        console.log(`📡 Lesebestätigung für ${userName} in Cloud gespeichert`);
+                    }).catch(e => console.error('Error saving read receipt:', e));
                 }
             });
         }
@@ -332,11 +426,11 @@ app.cloud = {
         const presenceRef = this.db.collection('presence')
             .doc(app.state.user.teamName)
             .collection('members')
-            .doc(app.state.user.name || 'Anonymous');
+            .doc(app.state.user.name || 'Anonym');
 
         // Set online status
         presenceRef.set({
-            name: app.state.user.name || 'Anonymous',
+            name: app.state.user.name || 'Anonym',
             online: true,
             lastSeen: firebase.firestore.FieldValue.serverTimestamp()
         });
@@ -389,11 +483,11 @@ app.cloud = {
 
         if (status === 'synced') {
             indicator.style.opacity = '1';
-            statusText.textContent = 'Synced';
+            statusText.textContent = 'Synchronisiert';
             statusText.style.color = 'var(--success)';
         } else if (status === 'syncing') {
             indicator.style.opacity = '0.7';
-            statusText.textContent = 'Syncing...';
+            statusText.textContent = 'Synchronisiere...';
             statusText.style.color = 'var(--primary)';
         } else if (status === 'error') {
             indicator.style.opacity = '0.5';
@@ -443,5 +537,10 @@ app.cloud = {
             clearInterval(this.syncInterval);
             this.syncInterval = null;
         }
+    },
+
+    // Alias for app.js auto-sync compatible
+    push() {
+        return this.sync(true);
     }
 };

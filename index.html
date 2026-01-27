@@ -734,6 +734,28 @@
                             </div>
                         </div>
 
+                        <!-- TEAM READ RECEIPTS CARD (Always Visible if Team active) -->
+                        <div id="teamReadReceiptsCard" class="card dash-card card-medium"
+                            style="grid-column: span 2; order: 5; background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(21, 128, 61, 0.03)); border-left: 3px solid #22c55e;"
+                            draggable="true">
+                            <div class="card-header">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div
+                                        style="background: rgba(34, 197, 94, 0.15); width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                                        <i data-lucide="eye" style="color: #22c55e;" size="18"></i>
+                                    </div>
+                                    <span class="card-title" style="font-size: 1rem; font-weight: 700;">Letzte
+                                        Aktualisierung & Status</span>
+                                </div>
+                            </div>
+                            <div class="card-content" style="padding-top: 10px;">
+                                <div id="dashboardReadReceiptsList" style="display: flex; flex-wrap: wrap; gap: 10px;">
+                                    <div class="text-muted text-sm" style="font-style: italic;">Keine neuen Updates...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
 
                         <!-- HOUSEHOLD CARD (Private Only) -->
                         <div id="dashboardHouseholdCard" class="card dash-card card-medium"
@@ -842,6 +864,16 @@
                         <h3><i data-lucide="share-2"></i> Geteilte Aufgaben</h3>
                         <div id="teamTasksList" style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
                             <!-- Mock tasks -->
+                        </div>
+                    </div>
+
+                    <!-- Read Receipts Section -->
+                    <div class="card" style="margin-top:20px;">
+                        <h3><i data-lucide="eye"></i> Letzte Aktualisierung & Status</h3>
+                        <p class="text-muted text-sm">Wer hat die letzten Änderungen gesehen?</p>
+                        <div id="teamReadReceipts"
+                            style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
+                            <div class="text-muted text-sm">Keine Bestätigungen vorhanden.</div>
                         </div>
                     </div>
                 </div>
@@ -1543,6 +1575,11 @@
                             <button class="btn btn-primary" onclick="app.cloud.sync(true)"><i
                                     data-lucide="refresh-cw"></i> Jetzt Syncen</button>
                         </div>
+                        <button class="btn btn-secondary"
+                            onclick="window.showModalNotification('🔔 Test: Team-Update', 'Max Mustermann hat Änderungen vorgenommen.', 'info', '<div style=\'display:flex;align-items:center;gap:10px;background:rgba(59,130,246,0.1);padding:10px;border-radius:6px;border-left:3px solid #3b82f6;\'><span>📝</span><span>Aufgabe aktualisiert</span></div><div style=\'margin-top:10px;text-align:center;color:#3b82f6;\'>Bitte bestätigen!</div>', () => alert('✅ Bestätigt!'))"
+                            style="margin-top:15px; width:100%; border:1px dashed var(--accent); color:var(--accent);">
+                            <i data-lucide="bell"></i> Teste Popup-Fenster
+                        </button>
                     </div>
 
                     <div class="card">

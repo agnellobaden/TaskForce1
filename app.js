@@ -199,8 +199,12 @@ const app = {
                 // Deep merge or fallback to avoid nulls
                 this.state = { ...this.state, ...parsed };
 
-                // Clean all stored data from encoding issues
-                this.cleanStoredData();
+                // Clean all stored data from encoding issues (only once)
+                if (!this.state.dataCleanedVersion || this.state.dataCleanedVersion < 1) {
+                    this.cleanStoredData();
+                    this.state.dataCleanedVersion = 1;
+                    this.saveState(true);
+                }
             }
         } catch (e) {
             console.error("State Load Error", e);
@@ -237,16 +241,15 @@ const app = {
         if (this.state.archives) this.state.archives = cleanValue(this.state.archives);
         if (this.state.user) this.state.user = cleanValue(this.state.user);
 
-        // Save cleaned state
-        this.saveState(true); // true = skip sync to avoid infinite loop
+        console.log('✅ Daten wurden einmalig bereinigt (Encoding-Fix)');
     },
 
 
     runMigrations() {
         // Ensure critical objects exist
-        if (!this.state.user) this.state.user = { name: 'Creator', team: [] };
+        if (!this.state.user) this.state.user = { name: 'Ersteller', team: [] };
         if (!this.state.user.team) this.state.user.team = [];
-        if (!this.state.user.name) this.state.user.name = 'Creator';
+        if (!this.state.user.name) this.state.user.name = 'Ersteller';
 
         if (!this.state.events) this.state.events = [];
         if (!this.state.contacts) this.state.contacts = [];
@@ -405,6 +408,11 @@ const app = {
 
     saveState(skipSync = false) {
         try {
+            // Track local changes for smart sync (prevents overwriting remote read-receipts)
+            if (!skipSync) {
+                this.state.lastLocalChange = Date.now();
+            }
+
             localStorage.setItem('taskforce_state', JSON.stringify(this.state));
             this.gamification.updateUI();
 
@@ -6209,16 +6217,6 @@ const app = {
                             <option value="garden">Garten</option>
                             <option value="other">Sonstiges</option>
                         </select>
-                    </div>
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                        <div class="form-group">
-                            <label class="form-label">Datum (Optional)</label>
-                            <input type="date" id="householdDate" class="form-input">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Uhrzeit (Optional)</label>
-                            <input type="time" id="householdTime" class="form-input">
-                        </div>
                     </div>
                     <div class="form-group">
                         <label><input type="checkbox" id="householdUrgent"> 🔥 Dringend?</label>
