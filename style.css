@@ -142,6 +142,27 @@ h6 {
     font-weight: var(--font-weight-heading, 700);
 }
 
+.mobile-hide-pill {
+    /* Visible by default */
+}
+
+@media (max-width: 600px) {
+    .mobile-hide-pill {
+        display: none !important;
+    }
+
+    .hero-info-pills {
+        justify-content: space-between;
+    }
+
+    .hero-info-pills .info-pill {
+        flex: 1;
+        justify-content: center;
+        padding: 12px;
+        font-size: 1.1rem;
+    }
+}
+
 .mobile-only {
     display: none !important;
 }

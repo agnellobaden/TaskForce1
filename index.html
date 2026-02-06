@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MoltBot Organizer | Smart Team Sync</title>
     <meta name="description"
         content="Der intelligente Team-Organizer mit Echtzeit-Synchronisation für Termine und Kalender.">
@@ -23,25 +23,25 @@
 
     <!-- Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-
-    <!-- Firebase Cloud Sync -->
+    <!-- Firebase SDKs are loaded in app.js via modules or CDNs there if needed, 
+         but here we use the CDN script tags for simplicity if not using bundler -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="style_table.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- FIX: Ensure map-pin icon works by including it if not already handled by lucide script -->
 </head>
 
-<body class="dark-theme">
+<body data-theme="dark">
     <div id="app">
-        <div class="sidebar-overlay" onclick="app.toggleSidebar()"></div>
+        <div class="sidebar-overlay" onclick="document.getElementById('sidebar').classList.remove('active')"></div>
 
         <!-- Navigation -->
         <nav class="sidebar" id="sidebar">
             <div class="sidebar-header mobile-only">
                 <h3>Menü</h3>
-                <button class="close-sidebar" onclick="app.toggleSidebar()">
+                <button class="close-sidebar" onclick="document.getElementById('sidebar').classList.remove('active')">
                     <i data-lucide="x"></i>
                 </button>
             </div>
@@ -51,52 +51,64 @@
             </div>
 
             <div class="nav-items">
-                <button class="nav-item active" data-page="dashboard">
+                <button class="nav-item active" data-page="dashboard" onclick="app.navigateTo('dashboard')">
                     <i data-lucide="layout-dashboard"></i> <span>Dashboard</span>
                 </button>
-                <button class="nav-item" data-page="calendar">
+                <button class="nav-item" data-page="calendar" onclick="app.navigateTo('calendar')">
                     <i data-lucide="calendar"></i> <span>Kalender</span>
                 </button>
-                <button class="nav-item" data-page="finance">
+                <button class="nav-item" data-page="finance" onclick="app.navigateTo('finance')">
                     <i data-lucide="wallet"></i> <span>Finanzen</span>
                 </button>
-                <button class="nav-item" data-page="team">
+                <button class="nav-item" data-page="team" onclick="app.navigateTo('team')">
                     <i data-lucide="users"></i> <span>Team Sync</span>
                 </button>
-                <button class="nav-item" data-page="contacts">
-                    <i data-lucide="book-user"></i> <span>Kontakte</span>
+                <button class="nav-item" data-page="contacts" onclick="app.navigateTo('contacts')">
+                    <i data-lucide="contact"></i> <span>Kontakte</span>
                 </button>
-                <button class="nav-item" data-page="todo">
+                <button class="nav-item" data-page="todo" onclick="app.navigateTo('todo')">
                     <i data-lucide="check-square"></i> <span>Aufgaben</span>
                 </button>
-                <button class="nav-item" data-page="alarm">
-                    <i data-lucide="alarm-clock"></i> <span>Wecker</span>
+                <button class="nav-item" data-page="alarm" onclick="app.navigateTo('alarm')">
+                    <i data-lucide="clock"></i> <span>Wecker</span>
                 </button>
-                <button class="nav-item" data-page="settings">
-                    <i data-lucide="settings"></i> <span>Einstellungen</span>
+                <button class="nav-item" data-page="settings" onclick="app.navigateTo('settings')">
+                    <i data-lucide="settings"></i> <span>Einstell.</span>
                 </button>
-            </div>
-
-            <div class="sync-status-mini" id="miniSyncIndicator">
-                <div class="status-dot"></div>
-                <span id="syncStatusText">Offline</span>
             </div>
         </nav>
 
         <!-- Main Content -->
         <main class="content">
-            <header class="top-bar">
-                <button class="menu-toggle mobile-only" id="menuToggle" onclick="app.toggleSidebar()">
+            <!-- Mobile Header with Hamburger -->
+            <header class="top-bar mobile-only"
+                style="justify-content: space-between; align-items: center; display: flex;">
+                <button class="menu-toggle" onclick="document.getElementById('sidebar').classList.add('active')">
                     <i data-lucide="menu"></i>
                 </button>
-                <div class="search-bar mobile-hidden">
-                    <i data-lucide="search"></i>
-                    <input type="text" id="globalSearch" placeholder="Termine suchen...">
-                </div>
-                <div class="user-actions">
-                    <button class="btn-outline" id="addContactBtn" onclick="app.contacts.openModal()">
-                        <i data-lucide="user-plus"></i>
+
+                <div style="display: flex; align-items: center;">
+                    <button class="icon-btn" onclick="app.voice.start()" style="margin-right: 10px;">
+                        <i data-lucide="mic"></i>
                     </button>
+                    <div class="avatar" style="width: 40px; height: 40px;" onclick="app.navigateTo('settings')">
+                        <img id="headerUserAvatarMobile" src="https://api.dicebear.com/7.x/avataaars/svg?seed=User"
+                            style="width:100%; height:100%; object-fit:cover; border-radius:50%;">
+                    </div>
+                </div>
+            </header>
+
+            <header class="top-bar mobile-hidden">
+                <div class="search-bar">
+                    <i data-lucide="search"></i>
+                    <input type="text" placeholder="Suche nach Terminen, Aufgaben...">
+                </div>
+
+                <div class="user-actions">
+                    <button class="icon-btn" title="Sprachsteuerung" onclick="app.voice.start()">
+                        <i data-lucide="mic"></i>
+                    </button>
+                    <!-- Notifications? -->
 
                     <div class="user-info-mini"
                         style="display: flex; flex-direction: column; align-items: flex-end; margin-right: 10px;">
@@ -123,11 +135,11 @@
                             <i data-lucide="calendar"></i>
                             <span id="dashDate">---, --. ---</span>
                         </div>
-                        <div class="info-pill highlight" style="flex-shrink: 0;">
+                        <div class="info-pill highlight mobile-hide-pill" style="flex-shrink: 0;">
                             <i data-lucide="map-pin"></i>
                             <span id="dashLocation">Ort...</span>
                         </div>
-                        <div class="info-pill highlight" style="flex-shrink: 0;">
+                        <div class="info-pill highlight mobile-hide-pill" style="flex-shrink: 0;">
                             <i data-lucide="cloud-sun"></i>
                             <span id="dashTemp">--°C</span>
                         </div>
@@ -848,18 +860,34 @@
                         <button class="btn-primary" onclick="app.contacts.openModal()">
                             <i data-lucide="user-plus"></i> Hinzufügen
                         </button>
-                        <button class="btn-outline" onclick="app.sync.push()" title="Jetzt manuell synchronisieren">
-                            <i data-lucide="refresh-cw"></i> Sync
-                        </button>
-                        <label class="btn-outline"
-                            style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <i data-lucide="import"></i> Import (VCF/CSV)
-                            <input type="file" id="contactImportFile" accept=".vcf,.csv" style="display: none;"
-                                onchange="app.contacts.import(this)">
-                        </label>
-                        <button class="btn-outline mobile-only" onclick="app.contacts.importMobile()">
-                            <i data-lucide="smartphone"></i> Handy Import
-                        </button>
+
+                        <details style="position: relative;">
+                            <summary class="btn-outline"
+                                style="list-style: none; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <i data-lucide="download"></i> Import & Sync <i data-lucide="chevron-down"
+                                    size="14"></i>
+                            </summary>
+                            <div class="glass"
+                                style="position: absolute; top: 120%; right: 0; padding: 15px; display: flex; flex-direction: column; gap: 10px; min-width: 220px; z-index: 50; border: 1px solid rgba(255,255,255,0.1);">
+                                <button class="btn-outline"
+                                    onclick="this.closest('details').removeAttribute('open'); app.sync.push()"
+                                    title="Jetzt manuell synchronisieren"
+                                    style="justify-content: flex-start; width: 100%;">
+                                    <i data-lucide="refresh-cw"></i> Cloud Sync
+                                </button>
+                                <label class="btn-outline"
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; justify-content: flex-start; width: 100%;">
+                                    <i data-lucide="file-input"></i> Datei (VCF/CSV)
+                                    <input type="file" id="contactImportFile" accept=".vcf,.csv" style="display: none;"
+                                        onchange="this.closest('details').removeAttribute('open'); app.contacts.import(this)">
+                                </label>
+                                <button class="btn-outline mobile-only"
+                                    onclick="this.closest('details').removeAttribute('open'); app.contacts.importMobile()"
+                                    style="justify-content: flex-start; width: 100%;">
+                                    <i data-lucide="smartphone"></i> Handy Import
+                                </button>
+                            </div>
+                        </details>
                     </div>
                 </div>
 

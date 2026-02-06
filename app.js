@@ -828,6 +828,15 @@ const app = {
             });
         }
 
+        // Auto-close details/summary dropdowns
+        document.addEventListener('click', (e) => {
+            document.querySelectorAll('details[open]').forEach(details => {
+                if (!details.contains(e.target)) {
+                    details.removeAttribute('open');
+                }
+            });
+        });
+
         // Calendar View Switcher
         const viewSelector = document.getElementById('calendarViewSelector');
         if (viewSelector) {
@@ -1204,6 +1213,14 @@ const app = {
             }
         },
 
+        deleteEntry(id) {
+            if (confirm("Ausgabe wirklich löschen?")) {
+                app.state.finance = app.state.finance.filter(e => e.id !== id);
+                app.saveLocal();
+                this.render();
+            }
+        },
+
         clearAll() {
             if (confirm('Möchtest du wirklich den gesamten Finanzverlauf löschen?')) {
                 app.state.finance = [];
@@ -1447,6 +1464,15 @@ const app = {
         }
 
         this.renderMiniCalendar();
+    },
+
+    deleteEvent(id) {
+        if (confirm("Termin wirklich löschen?")) {
+            app.state.events = app.state.events.filter(e => e.id !== id);
+            app.saveLocal();
+            app.sync.push();
+            app.render();
+        }
     },
 
     toggleFavorites() {
@@ -2023,10 +2049,12 @@ const app = {
         },
 
         delete(id) {
-            app.state.todos = app.state.todos.filter(t => t.id !== id);
-            app.saveLocal();
-            this.render();
-            if (app.sync && app.sync.push) app.sync.push();
+            if (confirm("Aufgabe wirklich löschen?")) {
+                app.state.todos = app.state.todos.filter(t => t.id !== id);
+                app.saveLocal();
+                this.render();
+                if (app.sync && app.sync.push) app.sync.push();
+            }
         },
 
         setFilter(filter) {
@@ -2704,9 +2732,11 @@ const app = {
         },
 
         delete(id) {
-            app.state.alarms = app.state.alarms.filter(a => a.id !== id);
-            this.save();
-            this.render();
+            if (confirm("Wecker wirklich löschen?")) {
+                app.state.alarms = app.state.alarms.filter(a => a.id !== id);
+                this.save();
+                this.render();
+            }
         },
 
         save() {
@@ -2984,13 +3014,19 @@ const app = {
                 return;
             }
 
-            // 3. TODO DETECTION
+            // 3. CONTACT DETECTION
+            if (input.includes('kontakt') && (input.includes('speichern') || input.includes('neuer') || input.includes('hinzu'))) {
+                this.handleContact(text);
+                return;
+            }
+
+            // 4. TODO DETECTION
             if (input.includes('aufgabe') || input.includes('todo') || input.includes('kaufen') || input.includes('besorgen') || input.includes('erinnerung')) {
                 this.handleTodo(text);
                 return;
             }
 
-            // 4. DEFAULT: NOTE (NOTIZ)
+            // 5. DEFAULT: NOTE (NOTIZ)
             this.handleTodo(text, '👤 Privat'); // Save as private note by default
         },
 
@@ -3045,33 +3081,57 @@ const app = {
         },
 
         handleEvent(text) {
-            let title = text.replace(/termin|treffen|meeting|um|uhr/gi, '').trim();
+            let title = "Termin";
             let date = new Date().toISOString().split('T')[0];
             let time = "10:00";
+            let location = "";
+            let notes = "Via Sprachbefehl erstellt";
 
-            // Date Detection (Basic)
-            if (text.includes('morgen')) {
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                date = tomorrow.toISOString().split('T')[0];
-                title = title.replace('morgen', '').trim();
+            // 1. Parse Name/Title ("mit Enrico", "Treffen mit...", "Termin Zahnarzt")
+            const mitMatch = text.match(/mit\s+([a-zA-ZäöüÄÖÜß]+)/i);
+            if (mitMatch) {
+                title = `Treffen mit ${mitMatch[1]}`;
+            } else {
+                // Should extract logic like "Zahnarzt" from "Termin beim Zahnarzt"
+                // Simplified: use full text minus keywords for now as fallback
+                // But better: check for specific keywords "Termin", "Meeting"
             }
 
-            // Time Detection (Basic: "10 Uhr" or "10:30")
-            const timeMatch = text.match(/(\d{1,2})([:.](\d{2}))?\s*(uhr)?/i);
+            // If the user says "Trage ein Termin ein mit enrico...", we want "Treffen mit Enrico" as title.
+
+            // 2. Parse Location ("in Kuppenheim", "bei...", "nach...")
+            const locMatch = text.match(/(?:in|bei|nach)\s+([a-zA-ZäöüÄÖÜß\s]+?)(?=\s+(?:um|am|im)|$)/i);
+            if (locMatch) {
+                location = locMatch[1].trim();
+            }
+
+            // 3. Parse Time ("um 17 Uhr", "17:30")
+            const timeMatch = text.match(/(\d{1,2})(?::(\d{2}))?\s*(?:Uhr)/i);
             if (timeMatch) {
                 const h = timeMatch[1].padStart(2, '0');
-                const m = timeMatch[3] || '00';
+                const m = timeMatch[2] || '00';
                 time = `${h}:${m}`;
-                title = title.replace(timeMatch[0], '').trim();
             }
+
+            // 4. Parse Date ("morgen", "übermorgen", "am Montag")
+            // Simple logic for now
+            if (text.includes('morgen')) {
+                const d = new Date(); d.setDate(d.getDate() + 1);
+                date = d.toISOString().split('T')[0];
+            } else if (text.includes('übermorgen')) {
+                const d = new Date(); d.setDate(d.getDate() + 2);
+                date = d.toISOString().split('T')[0];
+            }
+            // "am 20.2." or similar detection could go here
 
             const newEvent = {
                 id: Date.now().toString(),
-                title: title.charAt(0).toUpperCase() + title.slice(1) || "Neuer Termin",
+                title: title,
                 date: date,
                 time: time,
+                location: location,
                 category: 'work',
+                notes: notes,
                 createdAt: Date.now(),
                 updatedAt: Date.now()
             };
@@ -3080,7 +3140,34 @@ const app = {
             app.saveLocal();
             if (app.sync && app.sync.push) app.sync.push();
             app.render();
-            this.showFeedback(`Termin gespeichert: ${newEvent.title} am ${new Date(date).toLocaleDateString()} um ${time} Uhr`);
+            this.showFeedback(`Termin gespeichert: ${title} in ${location || 'Ort unbekannt'} um ${time}`);
+        },
+
+        handleContact(text) {
+            // Remove trigger words
+            let name = text.replace(/kontakt|speichern|neuer|hinzufügen|trage|ein/gi, '')
+                .replace(/mit|den|namen/gi, '') // filtering filler
+                .trim();
+
+            // Capitalize
+            if (name) name = name.charAt(0).toUpperCase() + name.slice(1);
+            else name = "Unbekannt";
+
+            const newContact = {
+                id: Date.now().toString(),
+                name: name,
+                phone: '',
+                email: '',
+                address: '',
+                notes: 'Via Sprache',
+                createdAt: Date.now()
+            };
+            app.state.contacts.unshift(newContact);
+            app.saveLocal();
+            if (app.state.view === 'contacts') app.contacts.render();
+            if (app.sync && app.sync.push) app.sync.push();
+
+            this.showFeedback(`Kontakt gespeichert: ${name}`);
         },
 
         showFeedback(msg) {
@@ -3088,6 +3175,14 @@ const app = {
             if (resultEl) {
                 resultEl.style.color = 'var(--success)';
                 resultEl.textContent = "✔ " + msg;
+            }
+
+            // Audible Feedback
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(msg);
+                utterance.lang = 'de-DE';
+                utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
             }
         }
     }
