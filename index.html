@@ -664,6 +664,22 @@
                                     </button>
                                 </div>
                             </div>
+
+                            <div class="form-group"
+                                style="grid-column: 1 / -1; display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="settingsHighContrast"
+                                    onchange="app.updateVisualSetting('highContrastMode', this.checked)"
+                                    style="width: 20px; height: 20px;">
+                                <label for="settingsHighContrast">Einfacher Lesemodus (Maximaler Kontrast)</label>
+                            </div>
+
+                            <div class="form-group"
+                                style="grid-column: 1 / -1; display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="settingsBoldMode"
+                                    onchange="app.updateVisualSetting('boldMode', this.checked)"
+                                    style="width: 20px; height: 20px;">
+                                <label for="settingsBoldMode"><b>Fetter Text (Alles hervorheben)</b></label>
+                            </div>
                         </div>
 
                         <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 20px;">
@@ -696,6 +712,21 @@
                                     oninput="document.getElementById('labelBri').textContent = this.value + '%'; app.updateVisualSetting('globalBrightness', this.value)"
                                     style="width: 100%;">
                             </div>
+
+                            <div class="range-group">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                    <label>Schriftgröße</label>
+                                    <span id="labelFontScale">100%</span>
+                                </div>
+                                <input type="range" id="inputFontScale" min="70" max="150" value="100"
+                                    oninput="document.getElementById('labelFontScale').textContent = this.value + '%'; app.updateVisualSetting('fontSizeScale', this.value)"
+                                    style="width: 100%;">
+                            </div>
+
+                            <button class="btn-outline" onclick="app.resetVisuals()"
+                                style="margin-top: 15px; border-color: var(--danger); color: var(--danger);">
+                                <i data-lucide="rotate-ccw"></i> Einstellungen zurücksetzen
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -826,6 +857,9 @@
                             <input type="file" id="contactImportFile" accept=".vcf,.csv" style="display: none;"
                                 onchange="app.contacts.import(this)">
                         </label>
+                        <button class="btn-outline mobile-only" onclick="app.contacts.importMobile()">
+                            <i data-lucide="smartphone"></i> Handy Import
+                        </button>
                     </div>
                 </div>
 

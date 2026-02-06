@@ -46,7 +46,10 @@ const app = {
         customPrimary: localStorage.getItem('moltbot_custom_primary') || '',
         globalSaturation: parseInt(localStorage.getItem('moltbot_global_saturation')) || 100,
         globalContrast: parseInt(localStorage.getItem('moltbot_global_contrast')) || 100,
-        globalBrightness: parseInt(localStorage.getItem('moltbot_global_brightness')) || 100
+        globalBrightness: parseInt(localStorage.getItem('moltbot_global_brightness')) || 100,
+        fontSizeScale: parseInt(localStorage.getItem('moltbot_font_size_scale')) || 100,
+        highContrastMode: localStorage.getItem('moltbot_high_contrast') === 'true',
+        boldMode: localStorage.getItem('moltbot_bold_mode') === 'true'
     },
 
     // --- INITIALIZATION ---
@@ -78,7 +81,78 @@ const app = {
         this.alarm.init();
 
         // Initial Render & Navigation
-        this.navigateTo(this.state.view);
+        this.handleInitialNavigation();
+    },
+
+    handleInitialNavigation() {
+        // Handle Back Button
+        window.addEventListener('popstate', (event) => {
+            // Close any open modals first
+            const modals = document.querySelectorAll('.modal-overlay:not(.hidden)');
+            if (modals.length > 0) {
+                modals.forEach(m => m.classList.add('hidden'));
+                // If the state was just a modal state, we might stay on the same view.
+                // But usually we just want to reflect the view stored in state.
+            }
+
+            if (event.state && event.state.view) {
+                this.navigateTo(event.state.view, true); // true = replace (don't push)
+            } else {
+                // Default fallback
+                this.navigateTo('dashboard', true);
+            }
+        });
+
+        // Current URL handling or default
+        // If we have a hash, maybe use it? For now, sticky with state or localStorage
+        // but push initial state so we have a base to return to
+        history.replaceState({ view: this.state.view }, '', '#' + this.state.view);
+        this.navigateTo(this.state.view, true);
+    },
+
+    resetVisuals() {
+        if (!confirm("Alle visuellen Einstellungen auf Standard zurücksetzen?")) return;
+
+        // Reset Logic
+        this.updateVisualSetting('customFont', 'Outfit');
+        this.updateVisualSetting('customPrimary', '');
+        this.updateVisualSetting('globalSaturation', 100);
+        this.updateVisualSetting('globalContrast', 100);
+        this.updateVisualSetting('globalBrightness', 100);
+        this.updateVisualSetting('fontSizeScale', 100);
+        this.updateVisualSetting('highContrastMode', false);
+        this.updateVisualSetting('boldMode', false);
+
+        // Update DOM Inputs
+        const inputs = {
+            'settingsFont': 'Outfit',
+            'settingsPrimaryColor': '#6366f1',
+            'inputSat': 100,
+            'inputCon': 100,
+            'inputBri': 100
+        };
+
+        for (const [id, val] of Object.entries(inputs)) {
+            const el = document.getElementById(id);
+            if (el) el.value = val;
+        }
+
+        // Update Labels
+        ['labelSat', 'labelCon', 'labelBri', 'labelFontScale'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = '100%';
+        });
+
+        const highContrastCheck = document.getElementById('settingsHighContrast');
+        if (highContrastCheck) highContrastCheck.checked = false;
+
+        const boldCheck = document.getElementById('settingsBoldMode');
+        if (boldCheck) boldCheck.checked = false;
+
+        const fontScaleInput = document.getElementById('inputFontScale');
+        if (fontScaleInput) fontScaleInput.value = 100;
+
+        alert("Standard-Einstellungen wiederhergestellt.");
     },
 
     loadLocal() {
@@ -198,7 +272,10 @@ const app = {
             'customPrimary': 'moltbot_custom_primary',
             'globalSaturation': 'moltbot_global_saturation',
             'globalContrast': 'moltbot_global_contrast',
-            'globalBrightness': 'moltbot_global_brightness'
+            'globalBrightness': 'moltbot_global_brightness',
+            'fontSizeScale': 'moltbot_font_size_scale',
+            'highContrastMode': 'moltbot_high_contrast',
+            'boldMode': 'moltbot_bold_mode'
         };
 
         if (storageKeyMap[key]) {
@@ -220,6 +297,19 @@ const app = {
 
         root.style.setProperty('--font-main', fontStack);
 
+        // High Contrast / Plain Text Mode
+        if (this.state.highContrastMode) {
+            root.style.setProperty('--text-hero-gradient', 'none');
+            root.style.setProperty('--text-hero-fill', 'var(--text-main)');
+            // Also force background opacity for better reading
+            root.style.setProperty('--bg-card', (this.state.theme === 'light') ? 'rgba(255,255,255,0.95)' : 'rgba(20,20,30,0.95)');
+        } else {
+            root.style.removeProperty('--text-hero-gradient');
+            root.style.removeProperty('--text-hero-fill');
+            // Reset bg-card if possible, or just re-apply theme default by clearing the override
+            root.style.removeProperty('--bg-card');
+        }
+
         // Primary Color Override
         if (this.state.customPrimary) {
             root.style.setProperty('--primary', this.state.customPrimary);
@@ -233,6 +323,15 @@ const app = {
             root.style.removeProperty('--primary-glow');
         }
 
+        // Font Weight Mode
+        if (this.state.boldMode) {
+            root.style.setProperty('--font-weight-body', '600');
+            root.style.setProperty('--font-weight-heading', '800');
+        } else {
+            root.style.setProperty('--font-weight-body', '400'); // Outfit Regular
+            root.style.setProperty('--font-weight-heading', '700'); // Outfit Bold
+        }
+
         // Filters (Saturation, Contrast, Brightness)
         // We apply this to body or html. 
         // Note: filter on body might affect fixed elements weirdly, let's try html or body.
@@ -241,6 +340,11 @@ const app = {
             contrast(${this.state.globalContrast}%) 
             brightness(${this.state.globalBrightness}%)
         `;
+
+        // Font Size Scale on Root (affecting rem units)
+        // Default browser font size is usually 16px (100%).
+        // We set font-size percentage directly on html
+        document.documentElement.style.fontSize = `${this.state.fontSizeScale || 100}%`;
     },
 
     // --- SYNC MODULE (Firebase Cloud) ---
@@ -644,13 +748,17 @@ const app = {
             app.state.editingEventId = null;
             document.getElementById('eventForm').reset();
             document.getElementById('eventDate').valueAsDate = new Date();
-            document.getElementById('eventColor').value = '#6366f1'; // Reset color
+            // Push history state to allow back button closing
+            history.pushState({ view: app.state.view, modal: true }, '', '#new-event');
             modal.classList.remove('hidden');
         };
         const sidebarCreate = document.getElementById('sidebarCreateBtn');
         if (sidebarCreate) sidebarCreate.onclick = showModal;
 
-        document.getElementById('closeModalBtn').onclick = () => modal.classList.add('hidden');
+        document.getElementById('closeModalBtn').onclick = () => {
+            if (history.state && history.state.modal) history.back();
+            else modal.classList.add('hidden');
+        };
 
 
         // Todo Input Enter Key
@@ -762,9 +870,17 @@ const app = {
         };
     },
 
-    navigateTo(page) {
+    navigateTo(page, replace = false) {
+        // If clicking the same page, do nothing unless we need to close sidebar
+        // if (this.state.view === page && !replace) return; 
+
         this.state.view = page;
         localStorage.setItem('moltbot_view', page);
+
+        // Update History
+        if (!replace) {
+            history.pushState({ view: page }, '', '#' + page);
+        }
 
         document.querySelectorAll('.page-view').forEach(v => v.classList.remove('active'));
         document.getElementById(`view-${page}`).classList.add('active');
@@ -887,6 +1003,19 @@ const app = {
         if (setBri) {
             setBri.value = this.state.globalBrightness;
             if (setBriLabel) setBriLabel.textContent = this.state.globalBrightness + '%';
+        }
+
+        const setHC = document.getElementById('settingsHighContrast');
+        if (setHC) setHC.checked = this.state.highContrastMode;
+
+        const setBold = document.getElementById('settingsBoldMode');
+        if (setBold) setBold.checked = this.state.boldMode;
+
+        const setFontScale = document.getElementById('inputFontScale');
+        const setFontLabel = document.getElementById('labelFontScale');
+        if (setFontScale) {
+            setFontScale.value = this.state.fontSizeScale || 100;
+            if (setFontLabel) setFontLabel.textContent = (this.state.fontSizeScale || 100) + '%';
         }
 
         if (this.state.view === 'dashboard') {
@@ -2055,6 +2184,57 @@ const app = {
 
         closeModal() {
             document.getElementById('contactModalOverlay').classList.add('hidden');
+        },
+
+        async importMobile() {
+            // Check for API support
+            if (!('contacts' in navigator && 'ContactsManager' in window)) {
+                alert("Dein Browser unterstützt den direkten Handy-Import nicht.\nBitte nutze 'Import (VCF/CSV)' und wähle eine exportierte Kontaktdatei aus.");
+                return;
+            }
+
+            try {
+                const props = ['name', 'tel', 'email', 'address'];
+                const opts = { multiple: true };
+
+                const contacts = await navigator.contacts.select(props, opts);
+
+                if (contacts && contacts.length > 0) {
+                    let count = 0;
+                    contacts.forEach(c => {
+                        // Handle multiple values properly, usually first one is main
+                        const name = c.name ? c.name[0] : 'Unbekannt';
+
+                        // Simple duplicate check
+                        const exists = app.state.contacts.some(ex => ex.name === name);
+                        if (exists) return;
+
+                        const newContact = {
+                            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                            name: name,
+                            phone: c.tel ? c.tel[0] : '',
+                            email: c.email ? c.email[0] : '',
+                            // Address object structure handling
+                            address: c.address && c.address[0] ?
+                                (c.address[0].addressLine ? c.address[0].addressLine.join(', ') :
+                                    Object.values(c.address[0]).join(', ')) : '',
+                            birthday: '',
+                            notes: 'Importiert vom Handy',
+                            createdAt: Date.now(),
+                            updatedAt: Date.now()
+                        };
+                        app.state.contacts.unshift(newContact);
+                        count++;
+                    });
+
+                    app.saveLocal();
+                    this.render();
+                    if (app.sync && app.sync.push) app.sync.push();
+                    alert(`${count} Kontakte erfolgreich importiert!`);
+                }
+            } catch (ex) {
+                console.error("Kontakt-Import Fehler:", ex);
+            }
         },
 
         import(input) {

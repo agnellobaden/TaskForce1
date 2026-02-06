@@ -130,6 +130,16 @@ body[data-theme='gold'] .logo-icon {
     padding: 0;
     box-sizing: border-box;
     font-family: var(--font-main, 'Outfit', sans-serif);
+    font-weight: var(--font-weight-body, 400);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-weight: var(--font-weight-heading, 700);
 }
 
 .mobile-only {
@@ -447,10 +457,12 @@ body {
     font-size: 1.4rem;
     font-weight: 700;
     margin-bottom: 4px;
-    background: linear-gradient(to right, #fff, var(--text-muted));
+    color: var(--text-main);
+    /* Fallback */
+    background: var(--text-hero-gradient, linear-gradient(to right, #fff, var(--text-muted)));
     -webkit-background-clip: text;
     background-clip: text;
-    -webkit-text-fill-color: transparent;
+    -webkit-text-fill-color: var(--text-hero-fill, transparent);
 }
 
 .hero p {
@@ -2564,13 +2576,14 @@ body {
         height: 100vh;
         width: var(--sidebar-width);
         transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        background: linear-gradient(180deg, #0f172a 0%, #020617 100%) !important;
-        box-shadow: 20px 0 60px rgba(0, 0, 0, 0.8);
+        background: rgba(10, 12, 16, 0.95) !important;
+        backdrop-filter: blur(20px);
+        box-shadow: 5px 0 30px rgba(0, 0, 0, 0.5);
         z-index: 2005;
         padding: 30px 20px;
         display: flex;
         flex-direction: column;
-        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        border-right: 1px solid rgba(255, 255, 255, 0.05);
     }
 
     .sidebar.active {
