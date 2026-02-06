@@ -1,0 +1,85 @@
+/* Contact Table */
+.contact-table {
+    width: 100%;
+    border-collapse: collapse;
+    white-space: nowrap;
+}
+
+.contact-table th {
+    text-align: left;
+    padding: 16px;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.contact-table td {
+    padding: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    vertical-align: middle;
+}
+
+.contact-table tr:last-child td {
+    border-bottom: none;
+}
+
+.contact-row:hover td {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.avatar-small {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: white;
+    font-size: 0.9rem;
+}
+
+.text-link {
+    color: var(--text-main);
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.text-link:hover {
+    color: var(--primary);
+    text-decoration: underline;
+}
+
+.btn-icon-danger {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 50%;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-icon-danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+}
+
+.font-medium {
+    font-weight: 500;
+}
+
+.truncate {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+.text-danger {
+    color: var(--danger);
+}
