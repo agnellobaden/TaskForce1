@@ -41,7 +41,12 @@ const app = {
         quickActionRight: localStorage.getItem('moltbot_qa_right') || 'settings',
         quickActionRight: localStorage.getItem('moltbot_qa_right') || 'settings',
         dockStyle: localStorage.getItem('moltbot_dock_style') || 'compact',
-        appName: localStorage.getItem('moltbot_app_name') || 'MoltBot'
+        appName: localStorage.getItem('moltbot_app_name') || 'MoltBot',
+        customFont: localStorage.getItem('moltbot_custom_font') || 'Outfit',
+        customPrimary: localStorage.getItem('moltbot_custom_primary') || '',
+        globalSaturation: parseInt(localStorage.getItem('moltbot_global_saturation')) || 100,
+        globalContrast: parseInt(localStorage.getItem('moltbot_global_contrast')) || 100,
+        globalBrightness: parseInt(localStorage.getItem('moltbot_global_brightness')) || 100
     },
 
     // --- INITIALIZATION ---
@@ -56,6 +61,9 @@ const app = {
 
         // Apply Theme
         this.updateTheme(this.state.theme);
+
+        // Apply Visual Customizations
+        this.applyVisuals();
 
         // Initialize Lucide Icons
         if (window.lucide) lucide.createIcons();
@@ -106,7 +114,13 @@ const app = {
         this.state.quickActionLeft = localStorage.getItem('moltbot_qa_left') || 'dashboard';
         this.state.quickActionRight = localStorage.getItem('moltbot_qa_right') || 'settings';
         this.state.dockStyle = localStorage.getItem('moltbot_dock_style') || 'compact';
+        this.state.dockStyle = localStorage.getItem('moltbot_dock_style') || 'compact';
         this.state.appName = localStorage.getItem('moltbot_app_name') || 'MoltBot';
+        this.state.customFont = localStorage.getItem('moltbot_custom_font') || 'Outfit',
+            this.state.customPrimary = localStorage.getItem('moltbot_custom_primary') || '',
+            this.state.globalSaturation = parseInt(localStorage.getItem('moltbot_global_saturation')) || 100;
+        this.state.globalContrast = parseInt(localStorage.getItem('moltbot_global_contrast')) || 100;
+        this.state.globalBrightness = parseInt(localStorage.getItem('moltbot_global_brightness')) || 100;
     },
 
     saveLocal() {
@@ -174,6 +188,59 @@ const app = {
         // Also update settings input if it exists
         const settingsInput = document.getElementById('settingsAppName');
         if (settingsInput) settingsInput.value = name;
+    },
+
+    updateVisualSetting(key, value) {
+        this.state[key] = value;
+        // Map state key to localStorage key correctly
+        const storageKeyMap = {
+            'customFont': 'moltbot_custom_font',
+            'customPrimary': 'moltbot_custom_primary',
+            'globalSaturation': 'moltbot_global_saturation',
+            'globalContrast': 'moltbot_global_contrast',
+            'globalBrightness': 'moltbot_global_brightness'
+        };
+
+        if (storageKeyMap[key]) {
+            localStorage.setItem(storageKeyMap[key], value);
+        }
+
+        this.applyVisuals();
+    },
+
+    applyVisuals() {
+        const root = document.documentElement;
+
+        // Font
+        let fontStack = "'Outfit', sans-serif";
+        if (this.state.customFont === 'Serif') fontStack = "Georgia, serif";
+        if (this.state.customFont === 'Mono') fontStack = "'Courier New', monospace";
+        if (this.state.customFont === 'System') fontStack = "system-ui, -apple-system, sans-serif";
+        if (this.state.customFont === 'Dyslexic') fontStack = "'OpenDyslexic', 'Comic Sans MS', sans-serif";
+
+        root.style.setProperty('--font-main', fontStack);
+
+        // Primary Color Override
+        if (this.state.customPrimary) {
+            root.style.setProperty('--primary', this.state.customPrimary);
+            // Calculate a simple alpha version for glow
+            // Very basic hex to rgb conversion for simplicity or just use the same color with opacity if possible
+            // For now set primary-glow to same color with low opacity using color-mix if supported or just let it be
+            // a simple approximation:
+            root.style.setProperty('--primary-glow', this.state.customPrimary + '40'); // 25% opacity
+        } else {
+            root.style.removeProperty('--primary');
+            root.style.removeProperty('--primary-glow');
+        }
+
+        // Filters (Saturation, Contrast, Brightness)
+        // We apply this to body or html. 
+        // Note: filter on body might affect fixed elements weirdly, let's try html or body.
+        document.body.style.filter = `
+            saturate(${this.state.globalSaturation}%) 
+            contrast(${this.state.globalContrast}%) 
+            brightness(${this.state.globalBrightness}%)
+        `;
     },
 
     // --- SYNC MODULE (Firebase Cloud) ---
@@ -790,6 +857,36 @@ const app = {
         const headerAvatar = document.getElementById('headerUserAvatar');
         if (headerAvatar) {
             headerAvatar.src = this.state.user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${this.state.user.name}`;
+        }
+
+
+
+        // Update Visual Settings Inputs
+        const setFont = document.getElementById('settingsFont');
+        if (setFont) setFont.value = this.state.customFont || 'Outfit';
+
+        const setPrimary = document.getElementById('settingsPrimaryColor');
+        if (setPrimary && this.state.customPrimary) setPrimary.value = this.state.customPrimary;
+
+        const setSat = document.getElementById('inputSat');
+        const setSatLabel = document.getElementById('labelSat');
+        if (setSat) {
+            setSat.value = this.state.globalSaturation;
+            if (setSatLabel) setSatLabel.textContent = this.state.globalSaturation + '%';
+        }
+
+        const setCon = document.getElementById('inputCon');
+        const setConLabel = document.getElementById('labelCon');
+        if (setCon) {
+            setCon.value = this.state.globalContrast;
+            if (setConLabel) setConLabel.textContent = this.state.globalContrast + '%';
+        }
+
+        const setBri = document.getElementById('inputBri');
+        const setBriLabel = document.getElementById('labelBri');
+        if (setBri) {
+            setBri.value = this.state.globalBrightness;
+            if (setBriLabel) setBriLabel.textContent = this.state.globalBrightness + '%';
         }
 
         if (this.state.view === 'dashboard') {

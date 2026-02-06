@@ -13,6 +13,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
+    <!-- PWA / Mobile Icon -->
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0a0c10">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <!-- Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
@@ -434,7 +442,7 @@
             <section id="view-alarm" class="page-view">
                 <div class="alarm-view-container glass animate-in" style="padding: 40px 20px;">
                     <div id="nightModeClock" class="digital-clock"
-                        style="font-size: 5rem; font-weight: 700; color: var(--primary); text-shadow: 0 0 20px var(--primary); margin-bottom: 30px; font-family: 'Outfit', sans-serif; text-align: center;">
+                        style="font-size: 5rem; font-weight: 700; color: var(--primary); text-shadow: 0 0 20px var(--primary); margin-bottom: 30px; font-family: var(--font-main, 'Outfit', sans-serif); text-align: center;">
                         00:00:00
                     </div>
 
@@ -617,6 +625,77 @@
                                 <div class="theme-preview gold" style="background: #d4af37;"></div>
                                 <span>Gold</span>
                             </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card glass animate-in collapsible-card is-collapsed" style="margin-bottom: 25px;">
+                    <div class="card-header-toggle" onclick="app.toggleCard(this)">
+                        <h3>Bildschirm & Anpassung 👁️</h3>
+                        <i data-lucide="chevron-down" class="toggle-icon"></i>
+                    </div>
+                    <div class="card-content">
+                        <p class="text-muted" style="margin-bottom: 20px;">Passe Schriftart, Farben und Kontrast für
+                            bessere Lesbarkeit an.</p>
+
+                        <div class="settings-input-grid">
+                            <div class="form-group">
+                                <label>Schriftart</label>
+                                <select id="settingsFont" onchange="app.updateVisualSetting('customFont', this.value)"
+                                    style="width: 100%; padding: 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 12px; color: white;">
+                                    <option value="Outfit">Standard (Outfit)</option>
+                                    <option value="System">System (Arial/Helvetica)</option>
+                                    <option value="Serif">Serif (Times/Georgia)</option>
+                                    <option value="Mono">Monospace (Code)</option>
+                                    <option value="Dyslexic">Open Dyslexic (Lesehilfe)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Hauptfarbe</label>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="color" id="settingsPrimaryColor"
+                                        onchange="app.updateVisualSetting('customPrimary', this.value)"
+                                        style="height: 45px; width: 100%; cursor: pointer; background: transparent; border: none;">
+                                    <button class="btn-outline"
+                                        onclick="app.updateVisualSetting('customPrimary', ''); document.getElementById('settingsPrimaryColor').value='#6366f1';"
+                                        title="Zurücksetzen">
+                                        <i data-lucide="rotate-ccw"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 20px;">
+                            <div class="range-group">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                    <label>Sättigung</label>
+                                    <span id="labelSat">100%</span>
+                                </div>
+                                <input type="range" id="inputSat" min="0" max="200" value="100"
+                                    oninput="document.getElementById('labelSat').textContent = this.value + '%'; app.updateVisualSetting('globalSaturation', this.value)"
+                                    style="width: 100%;">
+                            </div>
+
+                            <div class="range-group">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                    <label>Kontrast</label>
+                                    <span id="labelCon">100%</span>
+                                </div>
+                                <input type="range" id="inputCon" min="50" max="200" value="100"
+                                    oninput="document.getElementById('labelCon').textContent = this.value + '%'; app.updateVisualSetting('globalContrast', this.value)"
+                                    style="width: 100%;">
+                            </div>
+
+                            <div class="range-group">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                    <label>Helligkeit</label>
+                                    <span id="labelBri">100%</span>
+                                </div>
+                                <input type="range" id="inputBri" min="50" max="150" value="100"
+                                    oninput="document.getElementById('labelBri').textContent = this.value + '%'; app.updateVisualSetting('globalBrightness', this.value)"
+                                    style="width: 100%;">
+                            </div>
                         </div>
                     </div>
                 </div>

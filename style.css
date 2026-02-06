@@ -129,7 +129,7 @@ body[data-theme='gold'] .logo-icon {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Outfit', sans-serif;
+    font-family: var(--font-main, 'Outfit', sans-serif);
 }
 
 .mobile-only {
