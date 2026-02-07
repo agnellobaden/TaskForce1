@@ -544,13 +544,13 @@ const app = {
     sync: {
         db: null,
         config: {
-            apiKey: "AIzaSyCdiwAhgLBNnIdgvpWW3qpeTaKoSy1nTM0",
-            authDomain: "taskforce-91683.firebaseapp.com",
-            projectId: "taskforce-91683",
-            storageBucket: "taskforce-91683.firebasestorage.app",
-            messagingSenderId: "203568113458",
-            appId: "1:203568113458:web:666709ae3263977a43592b",
-            measurementId: "G-K8GQZGB8KE"
+            apiKey: "AIzaSyCIKoI2e_68iT-ljyfjq0Zij9KedS1L8Qk",
+            authDomain: "taskforce-9ffec.firebaseapp.com",
+            projectId: "taskforce-9ffec",
+            storageBucket: "taskforce-9ffec.firebasestorage.app",
+            messagingSenderId: "719312099554",
+            appId: "1:719312099554:web:e411a2566881238bd3e6bb",
+            measurementId: "G-K75D9LJMX8"
         },
         unsubscribe: null,
 
@@ -596,8 +596,15 @@ const app = {
 
             // Re-init sync
             this.init();
-            app.render();
-            alert(`Erfolgreich angemeldet! 🔒\nDein Organizer wird nun mit '${team}' synchronisiert.`);
+
+            // Push current state to cloud so other devices see it immediately
+            setTimeout(() => {
+                if (this.db) {
+                    this.push();
+                    app.render();
+                    alert(`Erfolgreich angemeldet! 🔒\nDein Organizer wird nun mit '${team}' synchronisiert.`);
+                }
+            }, 500);
         },
 
         disconnect() {
@@ -630,10 +637,8 @@ const app = {
                     if (data && data.payload) {
                         try {
                             const incoming = JSON.parse(data.payload);
-                            // Avoid merging if we just pushed this exact state
-                            if (incoming.pushedBy !== app.state.user.name) {
-                                app.mergeIncoming(incoming);
-                            }
+                            // REMOVED 'pushedBy' name check to allow devices with same name (default 'User') to sync
+                            app.mergeIncoming(incoming);
                             this.updateUI(true);
                         } catch (e) { console.error("Sync parse error", e); }
                     }
@@ -834,9 +839,12 @@ const app = {
     mergeIncoming(incoming) {
         if (!incoming.events) return;
 
-        // PRIVACY CHECK: Only merge if PIN matches
-        if (incoming.pin !== app.state.user.teamPin) {
-            console.error("Sync Error: PIN mismatch! Data ignored.");
+        // PRIVACY CHECK: Only merge if PIN matches (trimmed for safety)
+        const incomingPin = (incoming.pin || "").toString().trim();
+        const localPin = (app.state.user.teamPin || "").toString().trim();
+
+        if (incomingPin !== localPin) {
+            console.warn("Sync: PIN mismatch or missing pin. Data ignored.");
             return;
         }
 
@@ -929,6 +937,8 @@ const app = {
 
         if (changed) {
             this.saveLocal();
+            // Store the timestamp to avoid redundant merges if needed
+            this.state.lastRemoteSync = incoming.updatedAt;
             this.render();
         }
     },

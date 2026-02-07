@@ -474,12 +474,18 @@
                         <div id="activeSyncInfo" class="hidden"
                             style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--glass-border);">
                             <div
-                                style="display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--success); font-weight: 600;">
+                                style="display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--success); font-weight: 600; margin-bottom: 15px;">
                                 <i data-lucide="check-circle" size="18"></i> Aktiv verbunden: <span
                                     id="currentTeamDisplay">---</span>
                             </div>
-                            <button class="btn-text" style="color: var(--danger); margin-top: 15px;"
-                                onclick="app.sync.disconnect()">Verbindung trennen</button>
+                            <div style="display: flex; gap: 10px; justify-content: center;">
+                                <button class="btn-outline" style="font-size: 0.85rem; padding: 8px 15px;"
+                                    onclick="app.sync.push()">
+                                    <i data-lucide="refresh-cw" size="14"></i> Jetzt abgleichen
+                                </button>
+                                <button class="btn-text" style="color: var(--danger); font-size: 0.85rem;"
+                                    onclick="app.sync.disconnect()">Abmelden</button>
+                            </div>
                         </div>
                     </div>
 
