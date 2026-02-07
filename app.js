@@ -303,10 +303,19 @@ const app = {
     },
 
     saveLocal() {
+        // Migration/Sanity: Ensure all items have at least a createdAt/updatedAt before saving
+        const now = Date.now();
+        this.state.events.forEach(e => { if (!e.updatedAt) e.updatedAt = e.createdAt || now; });
+        this.state.todos.forEach(t => { if (!t.updatedAt) t.updatedAt = t.createdAt || now; });
+        this.state.contacts.forEach(c => { if (!c.updatedAt) c.updatedAt = c.createdAt || now; });
+        this.state.finance.forEach(f => { if (!f.updatedAt) f.updatedAt = f.createdAt || now; });
+
         localStorage.setItem('moltbot_events', JSON.stringify(this.state.events));
         localStorage.setItem('moltbot_todos', JSON.stringify(this.state.todos));
         localStorage.setItem('moltbot_contacts', JSON.stringify(this.state.contacts));
+        localStorage.setItem('moltbot_finance', JSON.stringify(this.state.finance));
         localStorage.setItem('moltbot_todo_categories', JSON.stringify(this.state.todoCategories));
+        localStorage.setItem('moltbot_alarms', JSON.stringify(this.state.alarms));
     },
 
     updateTheme(theme) {
@@ -554,15 +563,25 @@ const app = {
         },
         unsubscribe: null,
 
+        log(msg, type = 'info') {
+            const logEl = document.getElementById('syncLog');
+            if (logEl) {
+                const time = new Date().toLocaleTimeString();
+                const color = type === 'error' ? '#ff4444' : (type === 'success' ? '#44ff44' : '#aaa');
+                logEl.innerHTML = `<div><span style="color: ${color}">[${time}]</span> ${msg}</div>` + logEl.innerHTML;
+            }
+            console.log(`Sync Log: ${msg}`);
+        },
+
         init() {
             if (!window.firebase) {
-                console.error("Firebase SDK not found!");
+                this.log("Firebase SDK fehlt!", "error");
                 this.updateUI(false);
                 return;
             }
 
             if (!app.state.user.teamName) {
-                console.log("No team name set. Sync offline.");
+                this.log("Kein Team gesetzt (Lokal)");
                 this.updateUI(false);
                 return;
             }
@@ -571,13 +590,14 @@ const app = {
                 // Initialize Firebase only if not already initialized
                 if (!firebase.apps.length) {
                     firebase.initializeApp(this.config);
+                    this.log("Firebase initialisiert", "success");
                 }
                 this.db = firebase.firestore();
-                console.log("Firebase initialized for team:", app.state.user.teamName);
+                this.log(`Verbinde zu Team: ${app.state.user.teamName}`);
                 this.listen();
                 this.startPresence();
             } catch (e) {
-                console.error("Firebase init failed", e);
+                this.log(`Init Fehler: ${e.message}`, "error");
                 this.updateUI(false);
             }
         },
@@ -589,6 +609,7 @@ const app = {
             if (!team || !pin) return alert("Bitte Sync-Key UND PIN eingeben!");
             if (pin.length < 4) return alert("Der PIN muss 4-stellig sein.");
 
+            this.log(`Anmeldeversuch: ${team}...`);
             app.state.user.teamName = team;
             app.state.user.teamPin = pin;
             localStorage.setItem('moltbot_team', team);
@@ -602,9 +623,11 @@ const app = {
                 if (this.db) {
                     this.push();
                     app.render();
-                    alert(`Erfolgreich angemeldet! 🔒\nDein Organizer wird nun mit '${team}' synchronisiert.`);
+                    this.log("Anmeldung abgeschlossen", "success");
+                } else {
+                    this.log("Verbindung fehlgeschlagen!", "error");
                 }
-            }, 500);
+            }, 800);
         },
 
         disconnect() {
@@ -637,17 +660,17 @@ const app = {
                     if (data && data.payload) {
                         try {
                             const incoming = JSON.parse(data.payload);
-                            // REMOVED 'pushedBy' name check to allow devices with same name (default 'User') to sync
+                            this.log("Daten empfangen", "success");
                             app.mergeIncoming(incoming);
                             this.updateUI(true);
-                        } catch (e) { console.error("Sync parse error", e); }
+                        } catch (e) { this.log("Parse Fehler", "error"); }
                     }
                 } else {
-                    console.log("No remote data for this team yet.");
+                    this.log("Noch keine Team-Daten vorhanden");
                     this.updateUI(true);
                 }
             }, (error) => {
-                console.error("Firebase Listen Error:", error);
+                this.log(`Listen Fehler: ${error.code}`, "error");
                 this.updateUI(false);
             });
         },
@@ -655,10 +678,12 @@ const app = {
         push() {
             if (!this.db || !app.state.user.teamName) return;
 
-            // Visual feedback for sync button
-            const syncBtn = document.querySelector('button[onclick="app.sync.push()"]');
-            const syncIcon = syncBtn?.querySelector('i');
-            if (syncIcon) syncIcon.classList.add('spinning');
+            // Visual feedback for ALL sync buttons
+            const syncButtons = document.querySelectorAll('button[onclick="app.sync.push()"]');
+            syncButtons.forEach(btn => {
+                const icon = btn.querySelector('i');
+                if (icon) icon.classList.add('spinning');
+            });
 
             const payload = {
                 events: app.state.events,
@@ -682,13 +707,19 @@ const app = {
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 lastUpdatedBy: app.state.user.name
             }).then(() => {
-                console.log("Cloud Push successful");
+                this.log("Upload erfolgreich", "success");
                 this.updateUI(true);
-                if (syncIcon) syncIcon.classList.remove('spinning');
+                syncButtons.forEach(btn => {
+                    const icon = btn.querySelector('i');
+                    if (icon) icon.classList.remove('spinning');
+                });
             }).catch(e => {
-                console.error("Cloud Push failed", e);
+                this.log(`Upload Fehler: ${e.code || e.message}`, "error");
                 this.updateUI(false);
-                if (syncIcon) syncIcon.classList.remove('spinning');
+                syncButtons.forEach(btn => {
+                    const icon = btn.querySelector('i');
+                    if (icon) icon.classList.remove('spinning');
+                });
             });
         },
 
@@ -759,9 +790,12 @@ const app = {
             if (display) display.textContent = isConnected ? app.state.user.teamName : 'Lokal';
 
             const activeSyncInfo = document.getElementById('activeSyncInfo');
-            if (activeSyncInfo) {
-                activeSyncInfo.classList.toggle('hidden', !isConnected);
-            }
+            const mobileSyncBtn = document.getElementById('mobileSyncBtn');
+            const desktopSyncBtn = document.getElementById('desktopSyncBtn'); // In case we add it there too
+
+            if (activeSyncInfo) activeSyncInfo.classList.toggle('hidden', !isConnected);
+            if (mobileSyncBtn) mobileSyncBtn.classList.toggle('hidden', !isConnected);
+            if (desktopSyncBtn) desktopSyncBtn.classList.toggle('hidden', !isConnected);
 
             const loginFields = document.querySelector('.login-fields');
             if (loginFields) {
@@ -849,18 +883,21 @@ const app = {
         }
 
         let changed = false;
-        const localMap = new Map(this.state.events.map(e => [e.id, e]));
 
-        incoming.events.forEach(incEvent => {
-            const local = localMap.get(incEvent.id);
-            if (!local || (incEvent.updatedAt > (local.updatedAt || 0))) {
-                localMap.set(incEvent.id, incEvent);
-                changed = true;
-            }
-        });
+        // Merge Events (Termine)
+        if (incoming.events) {
+            const localMap = new Map(this.state.events.map(e => [e.id, e]));
+            incoming.events.forEach(incEvent => {
+                const local = localMap.get(incEvent.id);
+                const incUpd = incEvent.updatedAt || incEvent.createdAt || 1;
+                const localUpd = local ? (local.updatedAt || local.createdAt || 0) : -1;
 
-        if (changed) {
-            this.state.events = Array.from(localMap.values());
+                if (!local || incUpd > localUpd) {
+                    localMap.set(incEvent.id, incEvent);
+                    changed = true;
+                }
+            });
+            if (changed) this.state.events = Array.from(localMap.values());
         }
 
         // Merge Todos
@@ -868,15 +905,15 @@ const app = {
             const localTodoMap = new Map(this.state.todos.map(t => [t.id, t]));
             incoming.todos.forEach(incTodo => {
                 const local = localTodoMap.get(incTodo.id);
-                // Simple logic: remote wins if newer or if local doesn't exist
-                if (!local || incTodo.createdAt > local.createdAt) {
+                const incUpd = incTodo.updatedAt || incTodo.createdAt || 1;
+                const localUpd = local ? (local.updatedAt || local.createdAt || 0) : -1;
+
+                if (!local || incUpd > localUpd) {
                     localTodoMap.set(incTodo.id, incTodo);
                     changed = true;
                 }
             });
-            if (changed) {
-                this.state.todos = Array.from(localTodoMap.values());
-            }
+            if (changed) this.state.todos = Array.from(localTodoMap.values());
         }
 
         // Merge Contacts
@@ -884,14 +921,15 @@ const app = {
             const localContactMap = new Map(this.state.contacts.map(c => [c.id, c]));
             incoming.contacts.forEach(incContact => {
                 const local = localContactMap.get(incContact.id);
-                if (!local || incContact.updatedAt > (local.updatedAt || 0)) {
+                const incUpd = incContact.updatedAt || incContact.createdAt || 1;
+                const localUpd = local ? (local.updatedAt || local.createdAt || 0) : -1;
+
+                if (!local || incUpd > localUpd) {
                     localContactMap.set(incContact.id, incContact);
                     changed = true;
                 }
             });
-            if (changed) {
-                this.state.contacts = Array.from(localContactMap.values());
-            }
+            if (changed) this.state.contacts = Array.from(localContactMap.values());
         }
 
         // Merge Finance
@@ -899,15 +937,15 @@ const app = {
             const localFinMap = new Map(this.state.finance.map(f => [f.id, f]));
             incoming.finance.forEach(incFin => {
                 const local = localFinMap.get(incFin.id);
-                // Finance might not have updatedAt, using createdAt
-                if (!local || incFin.createdAt > (local.createdAt || 0)) {
+                const incUpd = incFin.updatedAt || incFin.createdAt || 1;
+                const localUpd = local ? (local.updatedAt || local.createdAt || 0) : -1;
+
+                if (!local || incUpd > localUpd) {
                     localFinMap.set(incFin.id, incFin);
                     changed = true;
                 }
             });
-            if (changed) {
-                this.state.finance = Array.from(localFinMap.values());
-            }
+            if (changed) this.state.finance = Array.from(localFinMap.values());
         }
 
         // Merge Alarms

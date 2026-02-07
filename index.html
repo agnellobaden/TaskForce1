@@ -136,6 +136,11 @@
                 </button>
 
                 <div style="display: flex; align-items: center;">
+                    <button id="mobileSyncBtn" class="icon-btn hidden" title="Jetzt synchronisieren"
+                        onclick="app.sync.push()"
+                        style="margin-right: 12px; background: rgba(var(--primary-rgb), 0.1); color: var(--primary); border: 1px solid var(--glass-border);">
+                        <i data-lucide="refresh-cw"></i>
+                    </button>
                     <button class="icon-btn" onclick="app.voice.start()" style="margin-right: 10px;">
                         <i data-lucide="mic"></i>
                     </button>
@@ -159,12 +164,18 @@
                     <!-- Notifications? -->
 
                     <div id="syncIndicator" class="sync-status-indicator" onclick="app.navigateTo('team')"
-                        style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 6px 12px; border-radius: 20px; cursor: pointer; border: 1px solid var(--glass-border); margin-right: 15px;">
+                        style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); padding: 6px 12px; border-radius: 20px; cursor: pointer; border: 1px solid var(--glass-border); margin-right: 10px;">
                         <span class="status-dot"
                             style="width: 8px; height: 8px; border-radius: 50%; background: #666;"></span>
                         <span id="syncStatusText"
                             style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted);">Lokal</span>
                     </div>
+
+                    <button id="desktopSyncBtn" class="icon-btn hidden" title="Jetzt synchronisieren"
+                        onclick="app.sync.push()"
+                        style="margin-right: 15px; background: rgba(var(--primary-rgb), 0.1); color: var(--primary); width: 32px; height: 32px;">
+                        <i data-lucide="refresh-cw" size="16"></i>
+                    </button>
 
                     <div class="user-info-mini"
                         style="display: flex; flex-direction: column; align-items: flex-end; margin-right: 10px;">
@@ -486,6 +497,19 @@
                                 <button class="btn-text" style="color: var(--danger); font-size: 0.85rem;"
                                     onclick="app.sync.disconnect()">Abmelden</button>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="card glass animate-in"
+                        style="margin-top: 25px; padding: 25px; text-align: left; border: 1px dashed rgba(var(--primary-rgb), 0.3);">
+                        <h4
+                            style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px; font-size: 0.9rem;">
+                            <i data-lucide="terminal" size="16"></i>
+                            Sync-Diagnose (Debug)
+                        </h4>
+                        <div id="syncLog"
+                            style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; font-family: monospace; font-size: 0.75rem; color: #aaa; max-height: 100px; overflow-y: auto;">
+                            Warte auf Aktion...
                         </div>
                     </div>
 
