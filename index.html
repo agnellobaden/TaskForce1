@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MoltBot Organizer | Smart Team Sync</title>
+    <title>Pear App | Smart Team Sync</title>
     <meta name="description"
         content="Der intelligente Team-Organizer mit Echtzeit-Synchronisation für Termine und Kalender.">
 
@@ -14,8 +14,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- PWA / Mobile Icon -->
-    <link rel="icon" type="image/png" href="icon.png">
-    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="icon" type="image/svg+xml" href="logo.svg">
+    <link rel="apple-touch-icon" href="logo.svg">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0a0c10">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -34,6 +34,35 @@
 </head>
 
 <body data-theme="dark">
+    <!-- SPLASH SCREEN -->
+    <div id="splash-screen"
+        style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #09090b; z-index: 99999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.6s ease-out, visibility 0.6s;">
+        <svg width="120" height="120" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"
+            style="filter: drop-shadow(0 0 20px rgba(255,255,255,0.2)); animation: pulse-logo 2s infinite;">
+            <defs>
+                <linearGradient id="rainbowGradSplash" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#FF0000;stop-opacity:1" />
+                    <stop offset="16%" style="stop-color:#FF7F00;stop-opacity:1" />
+                    <stop offset="33%" style="stop-color:#FFFF00;stop-opacity:1" />
+                    <stop offset="50%" style="stop-color:#00FF00;stop-opacity:1" />
+                    <stop offset="66%" style="stop-color:#0000FF;stop-opacity:1" />
+                    <stop offset="83%" style="stop-color:#4B0082;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#8B00FF;stop-opacity:1" />
+                </linearGradient>
+                <mask id="biteMaskSplash">
+                    <rect width="100" height="100" fill="white" />
+                    <circle cx="78" cy="40" r="18" fill="black" />
+                </mask>
+            </defs>
+            <path d="M50,10 C30,10 20,40 20,65 C20,90 35,95 50,95 C65,95 80,90 80,65 C80,40 70,10 50,10 Z"
+                fill="url(#rainbowGradSplash)" mask="url(#biteMaskSplash)" />
+            <path d="M50,10 Q50,0 60,5 C55,8 52,10 50,10" fill="url(#rainbowGradSplash)" />
+        </svg>
+        <h1
+            style="margin-top: 20px; font-family: 'Outfit', sans-serif; font-weight: 700; color: white; letter-spacing: 1px;">
+            Pear</h1>
+    </div>
+
     <div id="app">
         <div class="sidebar-overlay" onclick="document.getElementById('sidebar').classList.remove('active')"></div>
 
@@ -46,8 +75,27 @@
                 </button>
             </div>
             <div class="logo">
-                <div class="logo-icon">M</div>
-                <span>MoltBot</span>
+                <svg class="logo-icon" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="rainbowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#FF0000;stop-opacity:1" />
+                            <stop offset="16%" style="stop-color:#FF7F00;stop-opacity:1" />
+                            <stop offset="33%" style="stop-color:#FFFF00;stop-opacity:1" />
+                            <stop offset="50%" style="stop-color:#00FF00;stop-opacity:1" />
+                            <stop offset="66%" style="stop-color:#0000FF;stop-opacity:1" />
+                            <stop offset="83%" style="stop-color:#4B0082;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#8B00FF;stop-opacity:1" />
+                        </linearGradient>
+                        <mask id="biteMask">
+                            <rect width="100" height="100" fill="white" />
+                            <circle cx="78" cy="40" r="18" fill="black" />
+                        </mask>
+                    </defs>
+                    <path d="M50,10 C30,10 20,40 20,65 C20,90 35,95 50,95 C65,95 80,90 80,65 C80,40 70,10 50,10 Z"
+                        fill="url(#rainbowGrad)" mask="url(#biteMask)" />
+                    <path d="M50,10 Q50,0 60,5 C55,8 52,10 50,10" fill="url(#rainbowGrad)" />
+                </svg>
+                <span id="sidebarAppName">Pear</span>
             </div>
 
             <div class="nav-items">
@@ -92,7 +140,7 @@
                         <i data-lucide="mic"></i>
                     </button>
                     <div class="avatar" style="width: 40px; height: 40px;" onclick="app.navigateTo('settings')">
-                        <img id="headerUserAvatarMobile" src="https://api.dicebear.com/7.x/avataaars/svg?seed=User"
+                        <img id="headerUserAvatarMobile" src="logo.svg"
                             style="width:100%; height:100%; object-fit:cover; border-radius:50%;">
                     </div>
                 </div>
@@ -165,12 +213,16 @@
                 </div>
 
                 <div class="dashboard-grid">
-                    <div class="card glass next-events">
-                        <div class="card-header">
-                            <h3>Nächste Termine</h3>
-                            <button class="btn-text">Alle ansehen</button>
+                    <div class="card glass next-events collapsible-card">
+                        <div class="card-header-toggle" onclick="app.toggleCard(this)">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <h3>Nächste Termine</h3>
+                                <i data-lucide="chevron-up" class="toggle-icon" size="20"></i>
+                            </div>
+                            <button class="btn-text" onclick="event.stopPropagation(); app.navigateTo('calendar')">Alle
+                                ansehen</button>
                         </div>
-                        <div class="event-list" id="dashboardEventList">
+                        <div class="event-list card-content" id="dashboardEventList">
                             <div class="empty-state">Lade Termine...</div>
                         </div>
                     </div>
@@ -522,25 +574,7 @@
                     </button>
 
                     <!-- Fullscreen Night Clock Overlay -->
-                    <div id="nightClockFullscreen" class="night-overlay hidden" onclick="app.alarm.toggleFullscreen()">
-                        <div class="night-clock-large" id="fullscreenClock">00:00</div>
-                        <div class="night-clock-date" id="fullscreenDate">Freitag, 6. Februar</div>
 
-                        <!-- Controls visible on hover/tap -->
-                        <div class="night-controls" onclick="event.stopPropagation()">
-                            <div class="control-group">
-                                <i data-lucide="sun" size="16"></i>
-                                <input type="range" id="fsBrightness" min="0.1" max="1" step="0.1"
-                                    oninput="app.alarm.updateDesign('brightness', this.value)">
-                            </div>
-                            <div class="control-group">
-                                <i data-lucide="palette" size="16"></i>
-                                <input type="color" id="fsColor" oninput="app.alarm.updateDesign('color', this.value)">
-                            </div>
-                        </div>
-
-                        <div class="night-hint">Tippen zum Beenden</div>
-                    </div>
             </section>
 
             <section id="view-settings" class="page-view">
@@ -560,8 +594,7 @@
                             <div id="avatarPreviewContainer" class="avatar-large"
                                 style="position: relative; width: 100px; height: 100px; cursor: pointer; flex-shrink: 0;"
                                 onclick="document.getElementById('userAvatarUpload').click()">
-                                <img id="settingsUserAvatarPreview"
-                                    src="https://api.dicebear.com/7.x/avataaars/svg?seed=User"
+                                <img id="settingsUserAvatarPreview" src="logo.svg"
                                     style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%; border: 3px solid var(--primary);">
                                 <div
                                     style="position: absolute; bottom: 0; right: 0; background: var(--primary); color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid var(--bg-card);">
@@ -605,6 +638,13 @@
                             <input type="text" id="settingsUserAddress" placeholder="Deine Adresse..."
                                 onchange="app.updateUserData('address', this.value)">
                         </div>
+                        <div
+                            style="margin-top: 25px; padding-top: 15px; border-top: 1px solid var(--glass-border); display: flex; justify-content: flex-end;">
+                            <button class="icon-btn-subtle" onclick="app.resetUserProfile()"
+                                style="color: var(--danger); gap: 8px; border-radius: 8px; padding: 10px 15px; font-weight: 600;">
+                                <i data-lucide="refresh-cw" size="16"></i> Profil zurücksetzen
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -614,12 +654,7 @@
                         <i data-lucide="chevron-down" class="toggle-icon"></i>
                     </div>
                     <div class="card-content">
-                        <p class="text-muted" style="margin-bottom: 15px;">Passe den Namen deiner App an.</p>
-                        <div class="input-group" style="margin-bottom: 25px;">
-                            <label>App Name & Logo</label>
-                            <input type="text" id="settingsAppName" placeholder="MoltBot"
-                                onchange="app.updateAppName(this.value)">
-                        </div>
+
 
                         <p class="text-muted" style="margin-bottom: 15px;">Wähle das Design, das dir am besten gefällt.
                         </p>
@@ -664,13 +699,27 @@
                             </div>
 
                             <div class="form-group">
-                                <label>Hauptfarbe</label>
+                                <label>Hauptfarbe (Elemente)</label>
                                 <div style="display: flex; align-items: center; gap: 10px;">
                                     <input type="color" id="settingsPrimaryColor"
-                                        onchange="app.updateVisualSetting('customPrimary', this.value)"
+                                        oninput="app.updateVisualSetting('customPrimary', this.value)"
                                         style="height: 45px; width: 100%; cursor: pointer; background: transparent; border: none;">
                                     <button class="btn-outline"
-                                        onclick="app.updateVisualSetting('customPrimary', ''); document.getElementById('settingsPrimaryColor').value='#6366f1';"
+                                        onclick="app.updateVisualSetting('customPrimary', ''); document.getElementById('settingsPrimaryColor').value='#a1a1aa';"
+                                        title="Zurücksetzen">
+                                        <i data-lucide="rotate-ccw"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Hintergrund-Farbe (Bereich)</label>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="color" id="settingsSecondaryColor"
+                                        oninput="app.updateVisualSetting('customSecondary', this.value)"
+                                        style="height: 45px; width: 100%; cursor: pointer; background: transparent; border: none;">
+                                    <button class="btn-outline"
+                                        onclick="app.updateVisualSetting('customSecondary', ''); document.getElementById('settingsSecondaryColor').value='#52525b';"
                                         title="Zurücksetzen">
                                         <i data-lucide="rotate-ccw"></i>
                                     </button>
@@ -1038,6 +1087,28 @@
                 <button class="btn-outline" onclick="app.voice.stop()">Abbrechen</button>
             </div>
         </div>
+    </div>
+
+
+    <!-- Fullscreen Night Clock Overlay (Moved to root level) -->
+    <div id="nightClockFullscreen" class="night-overlay hidden" onclick="app.alarm.toggleFullscreen()">
+        <div class="night-clock-large" id="fullscreenClock">00:00</div>
+        <div class="night-clock-date" id="fullscreenDate">Freitag, 6. Februar</div>
+
+        <!-- Controls visible on hover/tap -->
+        <div class="night-controls" onclick="event.stopPropagation()">
+            <div class="control-group">
+                <i data-lucide="sun" size="16"></i>
+                <input type="range" id="fsBrightness" min="0.1" max="1" step="0.1"
+                    oninput="app.alarm.updateDesign('brightness', this.value)">
+            </div>
+            <div class="control-group">
+                <i data-lucide="palette" size="16"></i>
+                <input type="color" id="fsColor" oninput="app.alarm.updateDesign('color', this.value)">
+            </div>
+        </div>
+
+        <div class="night-hint">Tippen zum Beenden</div>
     </div>
 
     </div> <!-- End of #app -->

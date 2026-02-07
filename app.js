@@ -12,7 +12,7 @@ const app = {
             phone: localStorage.getItem('moltbot_user_phone') || '',
             email: localStorage.getItem('moltbot_user_email') || '',
             birthday: localStorage.getItem('moltbot_user_birthday') || '',
-            avatar: localStorage.getItem('moltbot_user_avatar') || '',
+            avatar: localStorage.getItem('moltbot_user_avatar') || 'logo.svg',
             teamName: localStorage.getItem('moltbot_team') || '',
             teamPin: localStorage.getItem('moltbot_pin') || '',
         },
@@ -22,9 +22,9 @@ const app = {
         currentDate: new Date(),
         todos: [],
         todoFilter: 'all',
-        todoCategories: JSON.parse(localStorage.getItem('moltbot_todo_categories')) || ['🛒 Einkauf', '💼 Arbeit', '🏠 Zuhause', '👤 Privat'],
-        contacts: JSON.parse(localStorage.getItem('moltbot_contacts')) || [],
-        alarms: JSON.parse(localStorage.getItem('moltbot_alarms')) || [],
+        todoCategories: [],
+        contacts: [],
+        alarms: [],
         nightModeStart: localStorage.getItem('moltbot_night_mode_start') || '01:00',
         nightModeColor: localStorage.getItem('moltbot_night_color') || '#ef4444',
         nightModeBrightness: localStorage.getItem('moltbot_night_brightness') || '1',
@@ -32,16 +32,15 @@ const app = {
         wakeLock: null,
         editingEventId: null,
         editingContactId: null,
-        finance: JSON.parse(localStorage.getItem('moltbot_finance')) || [],
+        finance: [],
         monthlyBudget: parseFloat(localStorage.getItem('moltbot_budget')) || 0,
         contactView: localStorage.getItem('moltbot_contact_view') || 'table',
         favsCollapsed: localStorage.getItem('moltbot_favs_collapsed') === 'true',
         theme: localStorage.getItem('moltbot_theme') || 'dark',
         quickActionLeft: localStorage.getItem('moltbot_qa_left') || 'dashboard',
         quickActionRight: localStorage.getItem('moltbot_qa_right') || 'settings',
-        quickActionRight: localStorage.getItem('moltbot_qa_right') || 'settings',
         dockStyle: localStorage.getItem('moltbot_dock_style') || 'compact',
-        appName: localStorage.getItem('moltbot_app_name') || 'MoltBot',
+        appName: localStorage.getItem('moltbot_app_name') || 'Pear',
         customFont: localStorage.getItem('moltbot_custom_font') || 'Outfit',
         customPrimary: localStorage.getItem('moltbot_custom_primary') || '',
         globalSaturation: parseInt(localStorage.getItem('moltbot_global_saturation')) || 100,
@@ -82,6 +81,18 @@ const app = {
 
         // Initial Render & Navigation
         this.handleInitialNavigation();
+
+        // SPLASH SCREEN LOGIC
+        setTimeout(() => {
+            const splash = document.getElementById('splash-screen');
+            if (splash) {
+                splash.style.opacity = '0';
+                splash.style.visibility = 'hidden';
+                setTimeout(() => {
+                    if (splash.parentNode) splash.parentNode.removeChild(splash);
+                }, 600);
+            }
+        }, 2000);
     },
 
     handleInitialNavigation() {
@@ -116,6 +127,7 @@ const app = {
         // Reset Logic
         this.updateVisualSetting('customFont', 'Outfit');
         this.updateVisualSetting('customPrimary', '');
+        this.updateVisualSetting('customSecondary', '');
         this.updateVisualSetting('globalSaturation', 100);
         this.updateVisualSetting('globalContrast', 100);
         this.updateVisualSetting('globalBrightness', 100);
@@ -126,7 +138,8 @@ const app = {
         // Update DOM Inputs
         const inputs = {
             'settingsFont': 'Outfit',
-            'settingsPrimaryColor': '#6366f1',
+            'settingsPrimaryColor': '#a1a1aa',
+            'settingsSecondaryColor': '#52525b',
             'inputSat': 100,
             'inputCon': 100,
             'inputBri': 100
@@ -152,16 +165,60 @@ const app = {
         const fontScaleInput = document.getElementById('inputFontScale');
         if (fontScaleInput) fontScaleInput.value = 100;
 
+        const appNameInput = document.getElementById('settingsAppName');
+        if (appNameInput) appNameInput.value = 'Pear';
+        this.updateAppName('Pear');
+
         alert("Standard-Einstellungen wiederhergestellt.");
     },
 
+    resetUserProfile() {
+        if (!confirm("Alle Profil-Daten wirklich löschen?")) return;
+
+        this.state.user.name = 'User';
+        this.state.user.address = '';
+        this.state.user.phone = '';
+        this.state.user.email = '';
+        this.state.user.birthday = '';
+        this.state.user.avatar = 'logo.svg';
+
+        localStorage.setItem('moltbot_username', 'User');
+        localStorage.setItem('moltbot_user_address', '');
+        localStorage.setItem('moltbot_user_phone', '');
+        localStorage.setItem('moltbot_user_email', '');
+        localStorage.setItem('moltbot_user_birthday', '');
+        localStorage.setItem('moltbot_user_avatar', 'logo.svg');
+
+        this.updateAppName('Pear');
+        this.render();
+        if (this.sync && this.sync.push) this.sync.push();
+        alert("Profil wurde zurückgesetzt.");
+    },
+
     loadLocal() {
+        const safeLoad = (key, fallback) => {
+            const val = localStorage.getItem(key);
+            if (!val) return fallback;
+            try {
+                return JSON.parse(val);
+            } catch (e) {
+                console.error(`Error loading ${key}:`, e);
+                return fallback;
+            }
+        };
+
         this.state.user.name = localStorage.getItem('moltbot_username') || 'User';
         this.state.user.address = localStorage.getItem('moltbot_user_address') || '';
         this.state.user.phone = localStorage.getItem('moltbot_user_phone') || '';
         this.state.user.email = localStorage.getItem('moltbot_user_email') || '';
         this.state.user.birthday = localStorage.getItem('moltbot_user_birthday') || '';
-        this.state.user.avatar = localStorage.getItem('moltbot_user_avatar') || '';
+        let storedAvatar = localStorage.getItem('moltbot_user_avatar');
+        // Migration: If avatar is old dicebear default, replace with logo.svg
+        if (!storedAvatar || storedAvatar.includes('dicebear')) {
+            storedAvatar = 'logo.svg';
+            localStorage.setItem('moltbot_user_avatar', 'logo.svg');
+        }
+        this.state.user.avatar = storedAvatar;
         this.state.view = localStorage.getItem('moltbot_view') || 'dashboard';
 
         const savedEvents = localStorage.getItem('moltbot_events');
@@ -177,24 +234,30 @@ const app = {
             } catch (e) { console.error("Error loading todos", e); }
         }
 
-        const savedContacts = localStorage.getItem('moltbot_contacts');
-        if (savedContacts) {
-            try {
-                this.state.contacts = JSON.parse(savedContacts);
-            } catch (e) { console.error("Error loading contacts", e); }
-        }
+        this.state.contacts = safeLoad('moltbot_contacts', []);
+        this.state.alarms = safeLoad('moltbot_alarms', []);
+        this.state.finance = safeLoad('moltbot_finance', []);
+        this.state.todoCategories = safeLoad('moltbot_todo_categories', ['🛒 Einkauf', '💼 Arbeit', '🏠 Zuhause', '👤 Privat']);
 
         this.state.theme = localStorage.getItem('moltbot_theme') || 'dark';
         this.state.quickActionLeft = localStorage.getItem('moltbot_qa_left') || 'dashboard';
         this.state.quickActionRight = localStorage.getItem('moltbot_qa_right') || 'settings';
         this.state.dockStyle = localStorage.getItem('moltbot_dock_style') || 'compact';
-        this.state.dockStyle = localStorage.getItem('moltbot_dock_style') || 'compact';
-        this.state.appName = localStorage.getItem('moltbot_app_name') || 'MoltBot';
+        this.state.appName = localStorage.getItem('moltbot_app_name') || 'Pear';
         this.state.customFont = localStorage.getItem('moltbot_custom_font') || 'Outfit',
             this.state.customPrimary = localStorage.getItem('moltbot_custom_primary') || '',
             this.state.globalSaturation = parseInt(localStorage.getItem('moltbot_global_saturation')) || 100;
         this.state.globalContrast = parseInt(localStorage.getItem('moltbot_global_contrast')) || 100;
         this.state.globalBrightness = parseInt(localStorage.getItem('moltbot_global_brightness')) || 100;
+
+        // Cleanup legacy purple or previous gray to enforce new light gray default
+        if (this.state.customPrimary === '#a855f7' || this.state.customPrimary === '#71717a') {
+            this.state.customPrimary = '';
+            localStorage.removeItem('moltbot_custom_primary');
+        }
+
+        const appNameInput = document.getElementById('settingsAppName');
+        if (appNameInput) appNameInput.value = this.state.appName;
     },
 
     saveLocal() {
@@ -204,40 +267,11 @@ const app = {
         localStorage.setItem('moltbot_todo_categories', JSON.stringify(this.state.todoCategories));
     },
 
-    updateUserName(name) {
-        if (!name) return;
-        this.state.user.name = name;
-        localStorage.setItem('moltbot_username', name);
-        this.render();
-    },
-
-    updateUserData(field, value) {
-        this.state.user[field] = value;
-        localStorage.setItem(`moltbot_user_${field}`, value);
-        this.render();
-    },
-
-    handleAvatarUpload(input) {
-        const file = input.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const base64 = e.target.result;
-            this.state.user.avatar = base64;
-            localStorage.setItem('moltbot_user_avatar', base64);
-            this.render();
-            if (app.sync && app.sync.push) app.sync.push();
-        };
-        reader.readAsDataURL(file);
-    },
-
     updateTheme(theme) {
         this.state.theme = theme;
         localStorage.setItem('moltbot_theme', theme);
         document.body.setAttribute('data-theme', theme);
 
-        // Update active state in theme buttons if on settings page
         if (this.state.view === 'settings') {
             document.querySelectorAll('.theme-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.getAttribute('data-theme') === theme);
@@ -264,12 +298,66 @@ const app = {
         if (settingsInput) settingsInput.value = name;
     },
 
+    updateUserName(name) {
+        if (!name) return;
+        this.state.user.name = name;
+        localStorage.setItem('moltbot_username', name);
+
+        // Update Dashboard and Header
+        this.render();
+
+        // Force update dashboard title even if not in dashboard view
+        const dashTitle = document.getElementById('dashboardWelcomeTitle');
+        if (dashTitle) this.renderDashboard();
+
+        // Sync if possible
+        if (this.sync && this.sync.push) this.sync.push();
+    },
+
+    updateUserData(key, value) {
+        this.state.user[key] = value;
+        localStorage.setItem(`moltbot_user_${key}`, value);
+
+        // Update relevant views
+        if (this.state.view === 'settings' || this.state.view === 'dashboard') {
+            this.render();
+        }
+
+        // Sync if possible
+        if (this.sync && this.sync.push) this.sync.push();
+    },
+
+    handleAvatarUpload(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const dataUrl = e.target.result;
+                this.state.user.avatar = dataUrl;
+                localStorage.setItem('moltbot_user_avatar', dataUrl);
+
+                // Update Previews
+                const preview = document.getElementById('settingsUserAvatarPreview');
+                if (preview) preview.src = dataUrl;
+
+                const headerAv = document.getElementById('headerUserAvatar');
+                if (headerAv) headerAv.src = dataUrl;
+
+                const headerAvMob = document.getElementById('headerUserAvatarMobile');
+                if (headerAvMob) headerAvMob.src = dataUrl;
+
+                if (this.sync && this.sync.push) this.sync.push();
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    },
+
     updateVisualSetting(key, value) {
         this.state[key] = value;
         // Map state key to localStorage key correctly
         const storageKeyMap = {
             'customFont': 'moltbot_custom_font',
             'customPrimary': 'moltbot_custom_primary',
+            'customSecondary': 'moltbot_custom_secondary',
             'globalSaturation': 'moltbot_global_saturation',
             'globalContrast': 'moltbot_global_contrast',
             'globalBrightness': 'moltbot_global_brightness',
@@ -283,6 +371,20 @@ const app = {
         }
 
         this.applyVisuals();
+    },
+
+    hexToRgb(hex) {
+        if (!hex) return null;
+        let c;
+        if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
+            c = hex.substring(1).split('');
+            if (c.length == 3) {
+                c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+            }
+            c = '0x' + c.join('');
+            return [(c >> 16) & 255, (c >> 8) & 255, c & 255].join(', ');
+        }
+        return null;
     },
 
     applyVisuals() {
@@ -313,15 +415,64 @@ const app = {
         // Primary Color Override
         if (this.state.customPrimary) {
             root.style.setProperty('--primary', this.state.customPrimary);
-            // Calculate a simple alpha version for glow
-            // Very basic hex to rgb conversion for simplicity or just use the same color with opacity if possible
-            // For now set primary-glow to same color with low opacity using color-mix if supported or just let it be
-            // a simple approximation:
-            root.style.setProperty('--primary-glow', this.state.customPrimary + '40'); // 25% opacity
+
+            const rgb = this.hexToRgb(this.state.customPrimary);
+            if (rgb) {
+                root.style.setProperty('--primary-rgb', rgb);
+                root.style.setProperty('--primary-glow', `rgba(${rgb}, 0.4)`);
+            } else {
+                root.style.setProperty('--primary-glow', this.state.customPrimary + '66');
+            }
         } else {
             root.style.removeProperty('--primary');
+            root.style.removeProperty('--primary-rgb');
             root.style.removeProperty('--primary-glow');
         }
+
+        // Secondary / Background Color Override
+        // Logic: specific secondary > specific primary > default
+        let secondaryColor = this.state.customSecondary;
+        if (!secondaryColor && this.state.customPrimary) {
+            secondaryColor = this.state.customPrimary;
+        }
+
+        if (secondaryColor) {
+            root.style.setProperty('--secondary', secondaryColor);
+            const rgb2 = this.hexToRgb(secondaryColor);
+            if (rgb2) {
+                root.style.setProperty('--secondary-rgb', rgb2);
+            }
+        } else {
+            // Reset to CSS defaults
+            root.style.removeProperty('--secondary');
+            root.style.removeProperty('--secondary-rgb');
+        }
+
+        // --- NEW: Calculate Solid Backgrounds based on Theme/Secondary ---
+        // Default solid dark colors (Zinc)
+        let bgSolid1 = '#18181b'; // Modal
+        let bgSolid2 = '#27272a'; // Input
+
+        if (secondaryColor) {
+            // If user picked a color, we want solid versions of it.
+            // Since we can't easily darken hex in vanilla JS without a lib, we'll try a trick:
+            // Use color-mix if supported, or just rely on the RGB variable.
+            // Actually, we can use the RGB variable inside an rgba() on top of black? 
+            // "Solid" means no transparency. 
+            // Let's use `color-mix` which is widely supported now.
+            bgSolid1 = `color-mix(in srgb, ${secondaryColor}, black 85%)`;
+            bgSolid2 = `color-mix(in srgb, ${secondaryColor}, black 75%)`;
+
+            // Also update --bg-card to use the secondary color tint
+            // Increased opacity to 0.15 so the user can actually see the color change on Dashboard
+            root.style.setProperty('--bg-card', `rgba(var(--secondary-rgb), 0.15)`);
+        } else {
+            // Revert bg-card to default (primary based) or just clear it
+            root.style.removeProperty('--bg-card');
+        }
+
+        root.style.setProperty('--bg-solid-1', bgSolid1);
+        root.style.setProperty('--bg-solid-2', bgSolid2);
 
         // Font Weight Mode
         if (this.state.boldMode) {
@@ -1051,7 +1202,7 @@ const app = {
 
             const avatarPreview = document.getElementById('settingsUserAvatarPreview');
             if (avatarPreview) {
-                avatarPreview.src = this.state.user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${this.state.user.name}`;
+                avatarPreview.src = this.state.user.avatar || 'logo.svg';
             }
 
             // Render Holidays in Settings
@@ -1384,7 +1535,29 @@ const app = {
 
     renderDashboard() {
         const title = document.getElementById('dashboardWelcomeTitle');
-        if (title) title.textContent = `Willkommen zurück, ${this.state.user.name}! 👋`;
+        const pearLogo = `
+        <svg width="28" height="28" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="vertical-align: bottom; margin-left: 5px; filter: drop-shadow(0 0 5px rgba(255,255,255,0.3));">
+            <defs>
+                <linearGradient id="rainbowGradDash" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#FF0000;stop-opacity:1" />
+                    <stop offset="16%" style="stop-color:#FF7F00;stop-opacity:1" />
+                    <stop offset="33%" style="stop-color:#FFFF00;stop-opacity:1" />
+                    <stop offset="50%" style="stop-color:#00FF00;stop-opacity:1" />
+                    <stop offset="66%" style="stop-color:#0000FF;stop-opacity:1" />
+                    <stop offset="83%" style="stop-color:#4B0082;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#8B00FF;stop-opacity:1" />
+                </linearGradient>
+                <mask id="biteMaskDash">
+                    <rect width="100" height="100" fill="white" />
+                    <circle cx="78" cy="40" r="18" fill="black" />
+                </mask>
+            </defs>
+            <path d="M50,10 C30,10 20,40 20,65 C20,90 35,95 50,95 C65,95 80,90 80,65 C80,40 70,10 50,10 Z"
+                fill="url(#rainbowGradDash)" mask="url(#biteMaskDash)" />
+            <path d="M50,10 Q50,0 60,5 C55,8 52,10 50,10" fill="url(#rainbowGradDash)" />
+        </svg>`;
+
+        if (title) title.innerHTML = `Willkommen zurück, ${this.state.user.name}! ${pearLogo}`;
 
         const list = document.getElementById('dashboardEventList');
         if (!list) return;
@@ -1394,6 +1567,15 @@ const app = {
         // Check for today's special occasions
         const today = new Date();
         const specials = filtered.filter(e => this.isEventOnDate(e, today) && (e.category === 'birthday' || e.category === 'holiday'));
+
+        // Check user's own birthday
+        if (this.state.user.birthday) {
+            const userBday = new Date(this.state.user.birthday);
+            if (userBday.getDate() === today.getDate() && userBday.getMonth() === today.getMonth()) {
+                const alreadyAdded = specials.some(s => s.title === 'Dein Geburtstag!');
+                if (!alreadyAdded) specials.push({ title: 'Dein Geburtstag!', category: 'birthday' });
+            }
+        }
 
         // Sort and future logic
         const sorted = [...filtered].sort((a, b) => new Date(a.date + 'T' + (a.time || '00:00')) - new Date(b.date + 'T' + (b.time || '00:00')));
@@ -1429,8 +1611,15 @@ const app = {
         }).slice(0, 5);
 
         if (future.length === 0 && specials.length === 0) {
-            list.innerHTML = '<div class="empty-state">Keine anstehenden Termine.</div>';
+            list.innerHTML = '';
+            // Hide the card
+            const card = list.closest('.next-events');
+            if (card) card.style.display = 'none';
         } else {
+            // Show the card
+            const card = list.closest('.next-events');
+            if (card) card.style.display = 'block';
+
             list.innerHTML = html + future.map(e => {
                 const d = new Date(e.date);
                 const day = d.getDate();
@@ -2650,10 +2839,36 @@ const app = {
         },
 
         toggleFullscreen(force = null) {
-            app.state.isNightClockFullscreen = force !== null ? force : !app.state.isNightClockFullscreen;
+            const desiredState = force !== null ? force : !app.state.isNightClockFullscreen;
+            app.state.isNightClockFullscreen = desiredState;
+
             const overlay = document.getElementById('nightClockFullscreen');
             if (overlay) {
-                overlay.classList.toggle('hidden', !app.state.isNightClockFullscreen);
+                overlay.classList.toggle('hidden', !desiredState);
+            }
+
+            // Browser Fullscreen API
+            if (desiredState) {
+                const elem = document.documentElement;
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen().catch(err => console.log("Fullscreen allowed only by user interaction"));
+                } else if (elem.webkitRequestFullscreen) { /* Safari */
+                    elem.webkitRequestFullscreen();
+                } else if (elem.msRequestFullscreen) { /* IE11 */
+                    elem.msRequestFullscreen();
+                }
+
+                // Wake Lock try
+                if (navigator.wakeLock) {
+                    navigator.wakeLock.request('screen').catch(console.warn);
+                }
+                this.toggleWakeLock();
+            } else {
+                if (document.exitFullscreen && document.fullscreenElement) {
+                    document.exitFullscreen().catch(e => console.log(e));
+                } else if (document.webkitExitFullscreen && document.webkitFullscreenElement) { /* Safari */
+                    document.webkitExitFullscreen();
+                }
             }
         },
 
@@ -3001,6 +3216,29 @@ const app = {
         process(text) {
             const input = text.toLowerCase();
             console.log("Processing Voice Command:", input);
+
+            // 0. PROFILE QUERIES
+            if (input.includes('wie heiße ich') || input.includes('mein name') || input.includes('wer bin ich')) {
+                this.showFeedback(`Dein Name ist ${app.state.user.name}.`);
+                return;
+            }
+            if (input.includes('telefonnummer')) {
+                this.showFeedback(`Deine Telefonnummer lautet ${app.state.user.phone || 'nicht hinterlegt'}.`);
+                return;
+            }
+            if (input.includes('email') || input.includes('e-mail')) {
+                this.showFeedback(`Deine E-Mail Adresse ist ${app.state.user.email || 'nicht hinterlegt'}.`);
+                return;
+            }
+            if (input.includes('adresse') || input.includes('wohne ich')) {
+                this.showFeedback(`Deine Adresse ist ${app.state.user.address || 'nicht hinterlegt'}.`);
+                return;
+            }
+            if (input.includes('geburtstag') || input.includes('wann bin ich geboren')) {
+                const bday = app.state.user.birthday;
+                this.showFeedback(`Dein Geburtstag ist am ${bday ? new Date(bday).toLocaleDateString('de-DE') : 'nicht hinterlegt'}.`);
+                return;
+            }
 
             // 1. FINANCE DETECTION
             if (input.includes('euro') || input.includes('betrag') || input.includes('ausgabe') || input.includes('kosten') || input.includes('€')) {
