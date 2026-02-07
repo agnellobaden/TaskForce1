@@ -886,7 +886,10 @@ const app = {
 
         // Merge Events (Termine)
         if (incoming.events) {
+            const incomingIds = new Set(incoming.events.map(e => e.id));
             const localMap = new Map(this.state.events.map(e => [e.id, e]));
+
+            // 1. Update or Add from incoming
             incoming.events.forEach(incEvent => {
                 const local = localMap.get(incEvent.id);
                 const incUpd = incEvent.updatedAt || incEvent.createdAt || 1;
@@ -897,12 +900,26 @@ const app = {
                     changed = true;
                 }
             });
+
+            // 2. Remove local items that are missing in incoming AND are older than the incoming payload
+            // This signifies they were deleted on another device
+            this.state.events.forEach(local => {
+                if (!incomingIds.has(local.id)) {
+                    if (incoming.updatedAt > (local.updatedAt || local.createdAt || 0)) {
+                        localMap.delete(local.id);
+                        changed = true;
+                    }
+                }
+            });
+
             if (changed) this.state.events = Array.from(localMap.values());
         }
 
         // Merge Todos
         if (incoming.todos) {
+            const incomingIds = new Set(incoming.todos.map(t => t.id));
             const localTodoMap = new Map(this.state.todos.map(t => [t.id, t]));
+
             incoming.todos.forEach(incTodo => {
                 const local = localTodoMap.get(incTodo.id);
                 const incUpd = incTodo.updatedAt || incTodo.createdAt || 1;
@@ -913,12 +930,24 @@ const app = {
                     changed = true;
                 }
             });
+
+            this.state.todos.forEach(local => {
+                if (!incomingIds.has(local.id)) {
+                    if (incoming.updatedAt > (local.updatedAt || local.createdAt || 0)) {
+                        localTodoMap.delete(local.id);
+                        changed = true;
+                    }
+                }
+            });
+
             if (changed) this.state.todos = Array.from(localTodoMap.values());
         }
 
         // Merge Contacts
         if (incoming.contacts) {
+            const incomingIds = new Set(incoming.contacts.map(c => c.id));
             const localContactMap = new Map(this.state.contacts.map(c => [c.id, c]));
+
             incoming.contacts.forEach(incContact => {
                 const local = localContactMap.get(incContact.id);
                 const incUpd = incContact.updatedAt || incContact.createdAt || 1;
@@ -929,12 +958,24 @@ const app = {
                     changed = true;
                 }
             });
+
+            this.state.contacts.forEach(local => {
+                if (!incomingIds.has(local.id)) {
+                    if (incoming.updatedAt > (local.updatedAt || local.createdAt || 0)) {
+                        localContactMap.delete(local.id);
+                        changed = true;
+                    }
+                }
+            });
+
             if (changed) this.state.contacts = Array.from(localContactMap.values());
         }
 
         // Merge Finance
         if (incoming.finance) {
+            const incomingIds = new Set(incoming.finance.map(f => f.id));
             const localFinMap = new Map(this.state.finance.map(f => [f.id, f]));
+
             incoming.finance.forEach(incFin => {
                 const local = localFinMap.get(incFin.id);
                 const incUpd = incFin.updatedAt || incFin.createdAt || 1;
@@ -945,6 +986,16 @@ const app = {
                     changed = true;
                 }
             });
+
+            this.state.finance.forEach(local => {
+                if (!incomingIds.has(local.id)) {
+                    if (incoming.updatedAt > (local.updatedAt || local.createdAt || 0)) {
+                        localFinMap.delete(local.id);
+                        changed = true;
+                    }
+                }
+            });
+
             if (changed) this.state.finance = Array.from(localFinMap.values());
         }
 
@@ -1009,6 +1060,20 @@ const app = {
         this.render();
     },
 
+    deleteEvent(id) {
+        if (!id && this.state.editingEventId) id = this.state.editingEventId;
+        if (!id) return;
+
+        if (confirm("Termin wirklich löschen?")) {
+            this.state.events = this.state.events.filter(e => e.id !== id);
+            this.state.editingEventId = null;
+            this.saveLocal();
+            this.sync.push();
+            this.render();
+            document.getElementById('modalOverlay').classList.add('hidden');
+        }
+    },
+
     editEvent(id) {
         const event = this.state.events.find(e => e.id === id);
         if (!event) return;
@@ -1026,6 +1091,7 @@ const app = {
         document.getElementById('eventCategory').value = event.category || 'work';
 
         // Open Modal
+        document.getElementById('deleteEventBtn').style.display = 'block';
         document.getElementById('modalOverlay').classList.remove('hidden');
     },
 
@@ -1063,6 +1129,10 @@ const app = {
             app.state.editingEventId = null;
             document.getElementById('eventForm').reset();
             document.getElementById('eventDate').valueAsDate = new Date();
+            // Hide delete btn for new events
+            const delBtn = document.getElementById('deleteEventBtn');
+            if (delBtn) delBtn.style.display = 'none';
+
             // Push history state to allow back button closing
             history.pushState({ view: app.state.view, modal: true }, '', '#new-event');
             modal.classList.remove('hidden');
@@ -2534,6 +2604,9 @@ const app = {
             document.getElementById('contactNotes').value = contact.notes || '';
             document.getElementById('contactIsFavorite').checked = !!contact.isFavorite;
 
+            const delBtn = document.getElementById('deleteContactBtn');
+            if (delBtn) delBtn.style.display = 'block';
+
             document.getElementById('contactModalOverlay').classList.remove('hidden');
         },
 
@@ -2549,11 +2622,15 @@ const app = {
         },
 
         delete(id) {
+            if (!id && app.state.editingContactId) id = app.state.editingContactId;
+            if (!id) return;
+
             if (confirm("Kontakt wirklich löschen?")) {
                 app.state.contacts = app.state.contacts.filter(c => c.id !== id);
                 app.saveLocal();
                 this.render();
                 if (app.sync && app.sync.push) app.sync.push();
+                this.closeModal();
             }
         },
 
@@ -2561,6 +2638,8 @@ const app = {
             app.state.editingContactId = null;
             document.getElementById('contactModalTitle').textContent = "Kontakt hinzufügen";
             document.getElementById('contactForm').reset();
+            const delBtn = document.getElementById('deleteContactBtn');
+            if (delBtn) delBtn.style.display = 'none';
             document.getElementById('contactModalOverlay').classList.remove('hidden');
         },
 

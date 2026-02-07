@@ -1084,7 +1084,12 @@
                                     style="height: 42px; width: 100%; padding: 2px; cursor: pointer;">
                             </div>
                         </div>
-                        <button type="submit" class="btn-primary w-full">Speichern</button>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <button type="button" id="deleteEventBtn" class="btn-outline"
+                                style="flex: 1; border-color: var(--danger); color: var(--danger); display: none;"
+                                onclick="app.deleteEvent()">Löschen</button>
+                            <button type="submit" class="btn-primary" style="flex: 2;">Speichern</button>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -1150,7 +1155,12 @@
                                 Favorit ❤️ (Wird oben angepinnt)
                             </label>
                         </div>
-                        <button type="submit" class="btn-primary w-full">Kontakt Speichern</button>
+                        <div style="display: flex; gap: 10px; margin-top: 20px;">
+                            <button type="button" id="deleteContactBtn" class="btn-outline"
+                                style="flex: 1; border-color: var(--danger); color: var(--danger); display: none;"
+                                onclick="app.contacts.delete()">Löschen</button>
+                            <button type="submit" class="btn-primary" style="flex: 2;">Speichern</button>
+                        </div>
                     </form>
                 </div>
             </div>
