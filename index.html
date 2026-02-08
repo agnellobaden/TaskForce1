@@ -29,6 +29,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style_table.css">
+    <link rel="stylesheet" href="style_create_menu.css">
 
     <!-- FIX: Ensure map-pin icon works by including it if not already handled by lucide script -->
 </head>
@@ -105,20 +107,20 @@
                 <button class="nav-item" data-page="calendar" onclick="app.navigateTo('calendar')">
                     <i data-lucide="calendar"></i> <span>Kalender</span>
                 </button>
-                <button class="nav-item" data-page="finance" onclick="app.navigateTo('finance')">
-                    <i data-lucide="wallet"></i> <span>Finanzen</span>
-                </button>
-                <button class="nav-item" data-page="team" onclick="app.navigateTo('team')">
-                    <i data-lucide="users"></i> <span>Team Sync</span>
-                </button>
                 <button class="nav-item" data-page="contacts" onclick="app.navigateTo('contacts')">
                     <i data-lucide="contact"></i> <span>Kontakte</span>
                 </button>
                 <button class="nav-item" data-page="todo" onclick="app.navigateTo('todo')">
                     <i data-lucide="check-square"></i> <span>Aufgaben</span>
                 </button>
+                <button class="nav-item" data-page="finance" onclick="app.navigateTo('finance')">
+                    <i data-lucide="wallet"></i> <span>Finanzen</span>
+                </button>
                 <button class="nav-item" data-page="alarm" onclick="app.navigateTo('alarm')">
                     <i data-lucide="clock"></i> <span>Wecker</span>
+                </button>
+                <button class="nav-item" data-page="team" onclick="app.navigateTo('team')">
+                    <i data-lucide="users"></i> <span>Team Sync</span>
                 </button>
                 <button class="nav-item" data-page="settings" onclick="app.navigateTo('settings')">
                     <i data-lucide="settings"></i> <span>Einstell.</span>
@@ -218,14 +220,14 @@
                             <h1 id="dashboardWelcomeTitle">Willkommen zurück! 👋</h1>
                             <p>Hier ist eine Übersicht deiner nächsten Termine.</p>
                         </div>
-                        <button class="btn-hero-action animate-in"
-                            onclick="app.openCreateAt(new Date().toISOString().split('T')[0])">
+                        <button class="btn-hero-action animate-in" id="dashboardCreateBtn"
+                            onclick="app.toggleCreateMenu(this)">
                             <div class="icon-circle">
-                                <i data-lucide="calendar-plus"></i>
+                                <i data-lucide="plus"></i>
                             </div>
                             <div class="btn-label">
-                                <span class="main-label">Neuer Termin</span>
-                                <span class="sub-label">Schnell erfassen</span>
+                                <span class="main-label">Neu</span>
+                                <span class="sub-label">Erstellen</span>
                             </div>
                         </button>
                     </div>
@@ -1095,26 +1097,7 @@
             </div>
         </div>
 
-        <!-- Exit Confirmation Modal -->
-        <div class="modal-overlay hidden" id="exitModalOverlay">
-            <div class="modal glass" style="max-width: 400px; text-align: center; padding: 40px 30px;">
-                <div style="margin-bottom: 25px;">
-                    <div class="icon-circle"
-                        style="width: 80px; height: 80px; background: rgba(var(--primary-rgb), 0.1); margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2px solid var(--glass-border);">
-                        <i data-lucide="log-out" size="32" style="color: var(--primary);"></i>
-                    </div>
-                    <h2 style="font-size: 1.5rem; margin-bottom: 10px;">App beenden?</h2>
-                    <p class="text-muted">Möchtest du Pear wirklich verlassen?</p>
-                </div>
-                <div style="display: flex; gap: 15px;">
-                    <button class="btn-outline" style="flex: 1; justify-content: center;"
-                        onclick="app.closeExitModal()">Abbrechen</button>
-                    <button class="btn-primary"
-                        style="flex: 1; justify-content: center; background: var(--danger); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);"
-                        onclick="app.confirmExit()">Beenden</button>
-                </div>
-            </div>
-        </div>
+
         <!-- Contact Modal -->
         <div class="modal-overlay hidden" id="contactModalOverlay">
             <div class="modal glass">

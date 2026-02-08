@@ -99,7 +99,7 @@ const app = {
         // Handle Back Button
         window.addEventListener('popstate', (event) => {
             // Close any open modals first (except the exit modal)
-            const modals = document.querySelectorAll('.modal-overlay:not(.hidden):not(#exitModalOverlay)');
+            const modals = document.querySelectorAll('.modal-overlay:not(.hidden)');
             if (modals.length > 0) {
                 modals.forEach(m => m.classList.add('hidden'));
                 // To keep the user on the same page after closing a modal via back button:
@@ -111,7 +111,6 @@ const app = {
                 if (event.state.view === 'root') {
                     // We hit the very base of history stack
                     if (this.state.view === 'dashboard') {
-                        this.openExitModal();
                         // Re-push dashboard so next back hits root again
                         history.pushState({ view: 'dashboard' }, '', '#dashboard');
                     } else {
@@ -124,7 +123,6 @@ const app = {
             } else {
                 // Fallback for null state
                 if (this.state.view === 'dashboard') {
-                    this.openExitModal();
                     history.pushState({ view: 'dashboard' }, '', '#dashboard');
                 } else {
                     this.navigateTo('dashboard', true);
@@ -141,35 +139,7 @@ const app = {
         this.navigateTo(initialView, true);
     },
 
-    openExitModal() {
-        const modal = document.getElementById('exitModalOverlay');
-        if (modal) {
-            modal.classList.remove('hidden');
-            if (window.lucide) lucide.createIcons();
-        }
-    },
 
-    closeExitModal() {
-        const modal = document.getElementById('exitModalOverlay');
-        if (modal) modal.classList.add('hidden');
-    },
-
-    confirmExit() {
-        // Attempt to close the window using various methods
-        window.close();
-
-        // This trick works in some browsers to allow window.close() 
-        // even if not opened by a script
-        try {
-            window.open('', '_self', '');
-            window.close();
-        } catch (e) { }
-
-        // Fallback for browsers that block closing
-        setTimeout(() => {
-            window.location.replace("about:blank");
-        }, 300);
-    },
 
     resetVisuals() {
         if (!confirm("Alle visuellen Einstellungen auf Standard zurücksetzen?")) return;
@@ -2225,15 +2195,13 @@ const app = {
 
         days.forEach(date => {
             const isToday = new Date().toDateString() === date.toDateString();
-            const dayName = date.toLocaleDateString('de-DE', { weekday: 'short' });
+            const dayName = date.toLocaleDateString('de-DE', { weekday: 'short' }).toUpperCase();
             const dayNum = date.getDate();
-            const fullDate = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
 
             header.innerHTML += `
                 <div class="header-day-col ${isToday ? 'today' : ''}">
                     <div class="header-day-name">${dayName}</div>
-                    <div class="header-day-num mobile-hidden">${dayNum}</div>
-                    <div class="header-day-full mobile-only">${fullDate}</div>
+                    <div class="header-day-num">${dayNum}</div>
                 </div>
             `;
         });
@@ -2253,7 +2221,7 @@ const app = {
         for (let h = 0; h < 24; h++) {
             gridRows += `
                 <div class="grid-row" data-hour="${h}">
-                    <div class="time-label"><span>${h}:00</span></div>
+                    <div class="time-label"><span>${h.toString().padStart(2, '0')}:00</span></div>
                     ${days.map(() => `<div class="grid-cell"></div>`).join('')}
                 </div>
             `;
@@ -2443,6 +2411,66 @@ const app = {
             document.getElementById('eventTime').value = formattedTime;
         }
         document.getElementById('modalOverlay').classList.remove('hidden');
+    },
+
+    // --- CREATE MENU ---
+    toggleCreateMenu(btn) {
+        let menu = document.getElementById('createMenuDropdown');
+
+        // Safety: close if no button passed (e.g. from item click)
+        if (!btn && menu) {
+            menu.classList.add('hidden');
+            return;
+        }
+
+        if (!menu) {
+            // Create menu if not exists
+            menu = document.createElement('div');
+            menu.id = 'createMenuDropdown';
+            menu.className = 'create-menu-dropdown hidden';
+            menu.innerHTML = `
+                <div class="create-menu-item" onclick="app.openCreateAt(new Date().toISOString().split('T')[0]); app.toggleCreateMenu()">
+                    <i data-lucide="calendar-plus"></i> Termin
+                </div>
+                 <div class="create-menu-item" onclick="app.navigateTo('calendar'); app.toggleCreateMenu()">
+                    <i data-lucide="calendar"></i> Kalender
+                </div>
+                <div class="create-menu-item" onclick="app.navigateTo('todo'); app.toggleCreateMenu()">
+                    <i data-lucide="check-square"></i> Aufgabe
+                </div>
+                <div class="create-menu-item" onclick="app.navigateTo('contacts'); app.toggleCreateMenu()">
+                    <i data-lucide="user-plus"></i> Kontakt
+                </div>
+            `;
+            document.body.appendChild(menu);
+
+            // Close when clicking outside
+            // Close when clicking outside
+            document.addEventListener('click', (e) => {
+                const trigger = document.getElementById('dashboardCreateBtn');
+                if (menu && !menu.contains(e.target) && (!trigger || !trigger.contains(e.target))) {
+                    menu.classList.add('hidden');
+                }
+            });
+        }
+
+        if (menu.classList.contains('hidden')) {
+            if (btn) {
+                const rect = btn.getBoundingClientRect();
+                menu.style.top = (rect.bottom + 10) + 'px';
+                menu.style.left = rect.left + 'px'; // Align left
+                // if too close to right edge, align right
+                if (rect.left + 200 > window.innerWidth) {
+                    menu.style.left = 'auto';
+                    menu.style.right = (window.innerWidth - rect.right) + 'px';
+                }
+            }
+
+            menu.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        } else {
+            menu.classList.add('hidden');
+        }
     },
 
     // --- TODO MODULE ---
