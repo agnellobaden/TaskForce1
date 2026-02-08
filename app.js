@@ -79,6 +79,9 @@ const app = {
         // Start Clock Interface
         this.alarm.init();
 
+        // Setup Gestures
+        this.setupGestures();
+
         // Initial Render & Navigation
         this.handleInitialNavigation();
 
@@ -1008,6 +1011,87 @@ const app = {
             this.state.lastRemoteSync = incoming.updatedAt;
             this.render();
         }
+    },
+
+    // --- GESTURES & NAVIGATION ---
+    setupGestures() {
+        // SWIPE LOGIC (Back/Forward)
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let touchEndY = 0;
+
+        document.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+            // PULL TO REFRESH START
+            if (window.scrollY === 0) {
+                this.ptrStartY = e.touches[0].clientY;
+            }
+        }, { passive: true });
+
+        document.addEventListener('touchmove', e => {
+            // PULL TO REFRESH MOVE
+            const y = e.touches[0].clientY;
+            if (window.scrollY === 0 && this.ptrStartY > 0 && y > this.ptrStartY) {
+                this.ptrDist = y - this.ptrStartY;
+                if (this.ptrDist > 80 && !this.ptrTriggered) {
+                    // Visual feedback could be added here
+                }
+            }
+        }, { passive: true });
+
+        document.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            touchEndY = e.changedTouches[0].screenY;
+
+            // Handle Swipe
+            const xDiff = touchEndX - touchStartX;
+            const yDiff = touchEndY - touchStartY;
+
+            // Swipe Left/Right (Back/Forward) - threshold 80px, mostly horizontal
+            if (Math.abs(xDiff) > 80 && Math.abs(yDiff) < 60) {
+                if (xDiff > 0) {
+                    // Swipe Right -> Back
+                    window.history.back();
+                } else {
+                    // Swipe Left -> Forward
+                    window.history.forward();
+                }
+            }
+
+            // Handle Pull to Refresh
+            if (window.scrollY === 0 && this.ptrDist > 150) {
+                this.handlePullToRefresh();
+            }
+            this.ptrDist = 0;
+            this.ptrStartY = 0;
+
+        }, { passive: true });
+    },
+
+    handlePullToRefresh() {
+        if (this.isRefreshing) return;
+        this.isRefreshing = true;
+
+        // Show loading overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'ptr-overlay';
+        overlay.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:9999; display:flex; justify-content:center; align-items:center; color:white; font-size:1.2rem; backdrop-filter:blur(5px); animation: fadeIn 0.3s;';
+        overlay.innerHTML = '<div style="display:flex; flex-direction:column; align-items:center; gap:15px;"><i data-lucide="loader-2" class="spinning" style="animation: spin 1s linear infinite;" width="40" height="40"></i><span>App wird aktualisiert...</span></div>';
+
+        // Use Lucide if available, else plain text or SVG
+        if (!window.lucide) {
+            overlay.innerHTML = '<div style="color:white;">Aktualisiere...</div>';
+        }
+
+        document.body.appendChild(overlay);
+        if (window.lucide) lucide.createIcons();
+
+        // RELOAD
+        setTimeout(() => {
+            window.location.reload();
+        }, 800);
     },
 
     addEvent(eventData) {
@@ -2107,20 +2191,16 @@ const app = {
     },
 
     renderWeekView(grid, startOfWeek, filteredEvents) {
-        let html = '<div class="agenda-view-container">';
+        // Generate array of 7 days
+        const days = [];
         for (let i = 0; i < 7; i++) {
             const date = new Date(startOfWeek);
             date.setDate(startOfWeek.getDate() + i);
-            const dateStr = date.toISOString().split('T')[0];
-            const dayEvents = filteredEvents.filter(e => this.isEventOnDate(e, date));
-            const isToday = date.toDateString() === new Date().toDateString();
-
-            html += this.renderDayListRow(date, dayEvents, isToday, dateStr);
+            days.push(date);
         }
-        html += '</div>';
-        grid.innerHTML = html;
-        grid.className = 'calendar-list-view';
-        if (window.lucide) lucide.createIcons();
+
+        // Use the vertical Time Grid (same as Day View)
+        this.renderTimeGrid(grid, days, filteredEvents, 'week');
     },
 
     renderDayListRow(date, events, isToday, dateStr) {
@@ -2190,7 +2270,7 @@ const app = {
         const header = document.createElement('div');
         header.className = 'time-grid-header';
 
-        // Time gutter spacer
+        // Time gutter spacer (matches the width of time-axis in body)
         header.innerHTML += `<div class="time-gutter-header"></div>`;
 
         days.forEach(date => {
@@ -2198,13 +2278,22 @@ const app = {
             const dayName = date.toLocaleDateString('de-DE', { weekday: 'short' }).toUpperCase();
             const dayNum = date.getDate();
 
+            // Google Calendar style: Day Name small top, Day Num big bottom
+            // If today: Day Name is colored (e.g. Blue), Day Num is White on Blue Circle.
+
+            let dayClasses = 'header-day-col';
+            if (isToday) dayClasses += ' today';
+
             header.innerHTML += `
-                <div class="header-day-col ${isToday ? 'today' : ''}">
+                <div class="${dayClasses}" data-date="${date.toISOString()}">
                     <div class="header-day-name">${dayName}</div>
                     <div class="header-day-num">${dayNum}</div>
                 </div>
             `;
         });
+
+        // Scrollbar spacer
+        header.innerHTML += `<div class="scrollbar-spacer"></div>`;
 
         return header;
     },
@@ -2213,103 +2302,135 @@ const app = {
         const body = document.createElement('div');
         body.className = 'time-grid-scroll-area';
 
+        // Main content wrapper
         const content = document.createElement('div');
         content.className = 'time-grid-content';
+        // Height: 24h * 60px = 1440px
+        content.style.height = '1440px';
 
-        // 1. Grid Background (Rows for hours)
-        let gridRows = '<div class="grid-background">';
-        for (let h = 0; h < 24; h++) {
-            gridRows += `
-                <div class="grid-row" data-hour="${h}">
-                    <div class="time-label"><span>${h.toString().padStart(2, '0')}:00</span></div>
-                    ${days.map(() => `<div class="grid-cell"></div>`).join('')}
-                </div>
-            `;
+        // 1. Time Axis (Left side labels)
+        const timeAxis = document.createElement('div');
+        timeAxis.className = 'time-axis';
+        for (let h = 0; h <= 23; h++) {
+            // Google Calendar puts label *on* the line.
+            // We render a label for each hour.
+            // Optional: Skip 00:00 if it looks weird at very top, but user requested 0-23.
+            // Actually, 00:00 at top index 0. User wants it.
+
+            const label = document.createElement('div');
+            label.className = 'time-label-slot';
+            label.style.top = `${h * 60}px`;
+            label.innerHTML = `<span>${String(h).padStart(2, '0')}:00</span>`;
+            timeAxis.appendChild(label);
         }
-        gridRows += '</div>';
+        content.appendChild(timeAxis);
 
-        // 2. Events Layer
-        let eventsLayer = '<div class="events-layer">';
+        // 2. Grid Lines (Horizontal)
+        const gridLines = document.createElement('div');
+        gridLines.className = 'grid-lines-layer';
+        for (let h = 1; h < 24; h++) {
+            const line = document.createElement('div');
+            line.className = 'horizontal-line';
+            line.style.top = `${h * 60}px`;
+            gridLines.appendChild(line);
+        }
+        content.appendChild(gridLines);
 
-        // Render events for each day column
+        // 3. Columns Container (Days)
+        const columnsContainer = document.createElement('div');
+        columnsContainer.className = 'day-columns-container';
+
         days.forEach((date, dayIndex) => {
+            const col = document.createElement('div');
+            col.className = 'day-column';
+            col.style.width = `${100 / days.length}%`; // Equal width
+
+            // Vertical line (border-left or right)
+            if (dayIndex > 0) {
+                col.style.borderLeft = '1px solid var(--glass-border)';
+            }
+
             // Filter events for this day
             const dayEvents = events.filter(e => this.isEventOnDate(e, date));
 
-            // Calculate positioning logic (simple collision detection could go here)
+            // Render Events
             dayEvents.forEach(e => {
-                if (e.allDay || (e.category === 'holiday' || e.category === 'birthday')) {
-                    // Render in header (TODO: Support all-day section), for now just top of list or skip
-                    // For holidays, we might want to render them as a background overlay or top banner
-                    return;
-                }
+                if (e.allDay) return; // All-day handled separately (TODO)
 
-                const style = this.getEventStyle(e, dayIndex, days.length);
-                const isHoliday = e.category === 'holiday';
-
-                if (isHoliday) return; // Skip holidays in time grid for now
-
-                // Custom Color Logic
-                let customStyle = '';
-                if (e.color) {
-                    customStyle = `background: ${e.color}E6; border-left-color: ${e.color};`; // E6 is ~90% hex opacity
-                }
-
-                eventsLayer += `
-                    <div class="event-card-absolute ${e.category}" 
-                         style="${style} ${customStyle}"
-                         onclick="event.stopPropagation(); app.editEvent('${e.id}')">
-                         <div class="event-time-range">${e.time || '00:00'} - ${this.addMinutes(e.time || '00:00', 60)}</div>
-                         <div class="event-title">${e.title}</div>
-                         ${e.location ? `<div class="event-location"><i data-lucide="map-pin" size="10"></i> ${e.location}</div>` : ''}
-                    </div>
-                `;
+                const eventEl = this.createEventElement(e);
+                col.appendChild(eventEl);
             });
+
+            // Current Time Marker (if today)
+            if (new Date().toDateString() === date.toDateString()) {
+                const now = new Date();
+                const minutes = now.getHours() * 60 + now.getMinutes();
+                const topPx = minutes; // 1min = 1px scale (60px/hr)
+
+                const marker = document.createElement('div');
+                marker.className = 'now-marker';
+                marker.style.top = `${topPx}px`;
+                marker.innerHTML = `<div class="now-dot"></div><div class="now-line"></div>`;
+                col.appendChild(marker);
+            }
+
+            // Click/Create listener for this column
+            col.onclick = (e) => {
+                if (e.target.closest('.event-card')) return;
+                const rect = col.getBoundingClientRect();
+                const clickY = e.clientY - rect.top + body.scrollTop;
+                // Wait, clientY relative to viewport. rect.top relative to viewport.
+                // But col is inside scroll area... 
+                // Actually easiest: relative to e.target if e.target is col.
+                // e.offsetY gives Y relative to target.
+
+                // Let's rely on app.openCreateAt logic or simplified:
+                const timeClicked = Math.floor(e.offsetY / 60);
+                const hourStr = timeClicked.toString().padStart(2, '0') + ':00';
+                const dateStr = date.toISOString().split('T')[0];
+                app.openCreateAt(dateStr, hourStr);
+            };
+
+            columnsContainer.appendChild(col);
         });
 
-        // 3. Current Time Indicator
-        const now = new Date();
-        const todayIndex = days.findIndex(d => d.toDateString() === now.toDateString());
-        if (todayIndex !== -1) {
-            const currentMinutes = now.getHours() * 60 + now.getMinutes();
-            const topPercent = (currentMinutes / 1440) * 100;
-            const leftPercent = (todayIndex / days.length) * 100 + (100 / days.length * 0.02); // slight offset
-            // Adjust "Time Gutter" width (approx 60px) in calculation if using absolute from left
-            // Simplified: The indicator line spans the specific day column
-
-            // Actually, easier to render line inside the day column wrapper if we structurue that way.
-            // But we used a monolithic grid. So we position absolutely relative to the content area.
-            // We need to account for the left gutter (60px).
-
-            const colWidth = `calc((100% - 60px) / ${days.length})`;
-            const leftPos = `calc(60px + (100% - 60px) * ${todayIndex} / ${days.length})`;
-
-            eventsLayer += `
-                <div class="current-time-marker" style="top: ${topPercent}%; left: ${leftPos}; width: ${colWidth};">
-                    <div class="current-time-dot"></div>
-                    <div class="current-time-line"></div>
-                </div>
-             `;
-        }
-
-        eventsLayer += '</div>';
-
-        // 4. Click targets for creating events
-        let clickLayer = '<div class="click-layer">';
-        for (let h = 0; h < 24; h++) {
-            days.forEach((date, i) => {
-                const dateStr = date.toISOString().split('T')[0];
-                const hourStr = h.toString().padStart(2, '0') + ':00';
-                clickLayer += `<div class="click-cell" 
-                    style="top: ${(h / 24) * 100}%; left: calc(60px + (100% - 60px) * ${i}/${days.length}); height: ${100 / 24}%; width: calc((100% - 60px)/${days.length});"
-                    onclick="app.openCreateAt('${dateStr}', '${hourStr}')"></div>`;
-            });
-        }
-        clickLayer += '</div>';
-
-        content.innerHTML = gridRows + eventsLayer + clickLayer;
+        content.appendChild(columnsContainer);
         body.appendChild(content);
+
         return body;
+    },
+
+    // Helper to create the event DOM element
+    createEventElement(e) {
+        // Calculate position
+        const [h, m] = (e.time || '00:00').split(':').map(Number);
+        const startMin = h * 60 + m;
+        const duration = 60; // Default 1h if not set
+        // TODO: Support actual duration if added to data model
+
+        const el = document.createElement('div');
+        el.className = `event-card ${e.category || ''}`;
+        el.style.top = `${startMin}px`;
+        el.style.height = `${duration}px`;
+
+        // Styling options (color)
+        if (e.color) {
+            el.style.backgroundColor = e.color;
+            el.style.borderLeftColor = e.color; // or darker?
+            // If color is light, text dark? 
+            // Simplified: use provided color logic or class
+        }
+
+        el.onclick = (ev) => {
+            ev.stopPropagation();
+            app.editEvent(e.id);
+        };
+
+        el.innerHTML = `
+            <div class="event-title">${e.title}</div>
+            <div class="event-time">${e.time}</div>
+        `;
+        return el;
     },
 
     getEventStyle(e, colIndex, totalCols) {

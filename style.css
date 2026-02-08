@@ -3348,51 +3348,76 @@ body {
     }
 }
 
-/* --- TIME GRID LAYOUT (24h Day View) --- */
+/* --- TIME GRID LAYOUT (24h Day & Week View REDESIGN) --- */
 .time-grid-container {
     display: flex;
     flex-direction: column;
     height: 100%;
     overflow: hidden;
     background: var(--bg-card);
-    border-radius: 12px;
+    border-radius: 20px;
+    border: none;
 }
 
 .time-grid-header {
     display: flex;
-    border-bottom: 2px solid var(--glass-border);
-    background: rgba(10, 12, 16, 0.9);
     flex-shrink: 0;
+    padding-right: 8px;
+    /* Scrollbar spacer compensation */
+    border-bottom: 1px solid var(--glass-border);
+    background: var(--bg-card);
+    z-index: 20;
 }
 
 .time-gutter-header {
     width: 60px;
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
     flex-shrink: 0;
-    background: rgba(0, 0, 0, 0.3);
+    border-right: 1px solid var(--glass-border);
+    background: transparent;
 }
 
 .header-day-col {
     flex: 1;
-    text-align: center;
-    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 0;
     border-right: 1px solid var(--glass-border);
 }
 
-.header-day-col.today {
-    background: rgba(99, 102, 241, 0.15);
+.header-day-col.today .header-day-name {
+    color: var(--primary);
+}
+
+.header-day-col.today .header-day-num {
+    background: var(--primary);
+    color: #000;
 }
 
 .header-day-name {
-    font-size: 0.9rem;
-    color: var(--text-main);
+    font-size: 0.75rem;
+    font-weight: 600;
     text-transform: uppercase;
-    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 4px;
 }
 
 .header-day-num {
-    font-size: 1.6rem;
-    color: var(--text-main);
+    font-size: 1.4rem;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: var(--transition);
+}
+
+.scrollbar-spacer {
+    width: 8px;
+    /* Match scrollbar width */
+    flex-shrink: 0;
 }
 
 .time-grid-scroll-area {
@@ -3400,58 +3425,165 @@ body {
     overflow-y: auto;
     position: relative;
     scroll-behavior: smooth;
-    background: rgba(0, 0, 0, 0.1);
+    background: var(--bg-card);
 }
 
 .time-grid-content {
     position: relative;
-    height: 1440px;
-    /* 24 hours * 60px */
     min-width: 100%;
+    /* Height set by JS */
 }
 
-.grid-background {
-    position: absolute;
-    top: 0;
+/* Time Axis (Left) */
+.time-axis {
+    position: sticky;
     left: 0;
+    height: 100%;
+    width: 60px;
+    border-right: 1px solid var(--glass-border);
+    /* Subtle separation */
+    background: var(--bg-card);
+    /* Blend with container */
+    z-index: 50;
+    /* Above grid lines but below modals */
+    pointer-events: none;
+    /* No heavy shadow */
+}
+
+.time-label-slot {
+    position: absolute;
+    width: 100%;
+    height: 0;
+    /* Use 0 height and transform to center vertically */
+    display: flex;
+    justify-content: center;
+    /* Center horizontally */
+    align-items: center;
+    transform: translateY(-50%);
+    /* Crucial for vertical centering on line */
+    pointer-events: none;
+    z-index: 51;
+}
+
+.time-label-slot span {
+    font-size: 0.75rem;
+    /* Smaller, cleaner */
+    color: var(--text-muted);
+    /* Distinct but not shouting */
+    font-weight: 500;
+    text-align: center;
+    padding: 0 4px;
+    background: var(--bg-card);
+    /* Ensure line doesn't strike through text */
+    border-radius: 4px;
+    /* Soft edges */
+}
+
+/* Grid Lines */
+.grid-lines-layer {
+    position: absolute;
+    left: 60px;
+    /* After gutter */
+    right: 0;
+    top: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.horizontal-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--glass-border);
+}
+
+/* Day Columns */
+.day-columns-container {
+    position: absolute;
+    left: 60px;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    display: flex;
+}
+
+.day-column {
+    flex: 1;
+    position: relative;
+    height: 100%;
+    /* Border handled by JS or CSS nth-child */
+    cursor: pointer;
+}
+
+.day-column:hover {
+    background: rgba(255, 255, 255, 0.01);
+}
+
+/* Event Cards in Day/Week View */
+.event-card {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    background: rgba(var(--primary-rgb), 0.2);
+    border-left: 3px solid var(--primary);
+    border-radius: 6px;
+    padding: 6px 8px;
+    overflow: hidden;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--text-main);
+    transition: var(--transition);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    z-index: 5;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.event-card:hover {
+    z-index: 10;
+    /* Bring to front */
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+    transform: scale(1.02);
+}
+
+.event-title {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+
+.event-time {
+    font-size: 0.7rem;
+    opacity: 0.8;
+}
+
+/* Current Time Marker */
+.now-marker {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #ea4335;
+    /* Google Red */
+    pointer-events: none;
+    z-index: 20;
+}
+
+.now-dot {
+    position: absolute;
+    left: -5px;
+    top: -4px;
+    width: 10px;
+    height: 10px;
+    background: #ea4335;
+    border-radius: 50%;
+}
+
+.now-line {
     width: 100%;
     height: 100%;
-    z-index: 1;
-}
-
-.grid-row {
-    height: 60px;
-    /* 1 hour */
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    /* Much more visible */
-    display: flex;
-    position: relative;
-    background: linear-gradient(to bottom, transparent 95%, rgba(255, 255, 255, 0.02) 100%);
-}
-
-.time-label {
-    width: 60px;
-    text-align: right;
-    padding-right: 8px;
-    color: #ffffff;
-    /* Pure white */
-    font-size: 0.85rem;
-    font-weight: 500;
-    transform: translateY(-50%);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    background: var(--bg-card);
-    /* Solid background, not transparent */
-    opacity: 1;
-}
-
-
-.grid-cell {
-    flex: 1;
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
-    /* Visible vertical lines */
 }
 
 .events-layer,
